@@ -1,0 +1,129 @@
+# =========================================================
+# Archivos sensibles / configuración con secretos
+# =========================================================
+.env
+.env.*
+!.env.example
+*.env
+*.env.local
+
+# =========================================================
+# Java / Spring Boot (core-api, bot-service)
+# =========================================================
+*.class
+*.jar
+
+# Maven
+target/
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+gradle-app.setting
+.gradletasknamecache
+
+# Spring Boot
+spring-boot-devtools.properties
+HELP.md
+
+# =========================================================
+# Frontend - Vue 3 / Vite / Node
+# =========================================================
+node_modules/
+dist/
+dist-ssr/
+.output/
+.nuxt/
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+
+# Logs npm/yarn/pnpm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Coverage / tests
+coverage/
+*.lcov
+.nyc_output/
+cypress/videos/
+cypress/screenshots/
+playwright-report/
+test-results/
+
+# Vite / Vue específicos
+*.local
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# TypeScript
+*.tsbuildinfo
+
+# =========================================================
+# Nginx
+# =========================================================
+nginx/logs/
+nginx/*.log
+nginx/cache/
+nginx/temp/
+nginx/client_body_temp/
+nginx/proxy_temp/
+nginx/fastcgi_temp/
+nginx/uwsgi_temp/
+nginx/scgi_temp/
+
+# =========================================================
+# IDEs
+# =========================================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# Eclipse / STS
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+.history/
+
+# macOS
+.DS_Store
+
+# =========================================================
+# Logs y temporales
+# =========================================================
+*.log
+logs/
+log/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
