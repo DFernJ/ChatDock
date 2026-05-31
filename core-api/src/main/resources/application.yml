@@ -3,9 +3,9 @@ spring:
     name: DockerOps
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: jdbc:mysql://${MYSQL_IP}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -17,7 +17,7 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
 
 server:
-  port: ${CORE_API_PORT:8080}
+  port: ${CORE_API_PORT}
 
 app:
   security:
@@ -27,6 +27,10 @@ app:
     internal-token: ${INTERNAL_SECURITY_TOKEN}
     cypher:
       encryption-key: ${SECRET_ENCRYPTION_KEY}
+    cookie:
+      secure: ${COOKIE_SECURE}
+    cors:
+      allow-origin: ${CORS_ALLOW_ORIGIN}
   bot-service:
     url: ${BOT_SERVICE_URL}
   cloudflare:

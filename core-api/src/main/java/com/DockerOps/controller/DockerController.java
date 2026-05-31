@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,34 +22,40 @@ public class DockerController {
     @Autowired
     private DockerService dockerService;
 
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping("/docker/containers")
     public List<ContainerDTO> getContainers() {
         return dockerService.listContainers();
     }
 
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping("/docker/containers/{containerId}")
     public ContainerStatsDTO getContainerInfo(@PathVariable String containerId) {
         return dockerService.getStats(containerId);
     }
 
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
     @PostMapping("/docker/containers/{containerId}/start")
     public ResponseEntity<String> startContainer(@PathVariable String containerId) {
         dockerService.startContainer(containerId);
         return ResponseEntity.ok("Container started successfully");
     }
 
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
     @PostMapping("/docker/containers/{containerId}/stop")
     public ResponseEntity<String> stopContainer(@PathVariable String containerId) {
         dockerService.stopContainer(containerId);
         return ResponseEntity.ok("Container stopped successfully");
     }
 
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
      @PostMapping("/docker/containers/{containerId}/restart")
     public ResponseEntity<String> restartContainer(@PathVariable String containerId) {
                 dockerService.restartContainer(containerId);
                 return ResponseEntity.ok("Container restarted successfully");
     }
 
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @PostMapping("/docker/containers/{containerId}/logs")
     public ResponseEntity<byte[]> getLogFile(@PathVariable String containerId) {
         byte[] logs = dockerService.getLogs(containerId);
@@ -58,6 +65,7 @@ public class DockerController {
                 .body(logs);
     }
 
+    @PreAuthorize("hasAuthority('PERM_ROOT')")
     @DeleteMapping("/docker/containers/{containerId}/delete")
     public ResponseEntity<?> deleteContainer(
             @PathVariable String containerId,
