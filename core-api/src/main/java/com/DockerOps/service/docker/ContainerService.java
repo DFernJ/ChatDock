@@ -1,10 +1,11 @@
-package com.DockerOps.service;
+package com.DockerOps.service.docker;
 
 import com.DockerOps.dto.container.ContainerDTO;
 import com.DockerOps.dto.container.ContainerStatsDTO;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -17,13 +18,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @Service
-public class DockerService {
+public class ContainerService {
 
-    private final DockerClient dockerClient;
-
-    public DockerService(DockerClient dockerClient) {
-        this.dockerClient = dockerClient;
-    }
+    @Autowired
+    private DockerClient dockerClient;
 
     public List<ContainerDTO> listContainers() {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
