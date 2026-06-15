@@ -4,6 +4,7 @@ import com.DockerOps.dto.container.ContainerDTO;
 import com.DockerOps.dto.container.ContainerStatsDTO;
 import com.DockerOps.dto.image.ImageDTO;
 import com.DockerOps.dto.network.NetworkDTO;
+import com.DockerOps.dto.response.CountResponseDTO;
 import com.DockerOps.dto.volume.VolumeDTO;
 import com.DockerOps.service.docker.ContainerService;
 import com.DockerOps.service.docker.ImageService;
@@ -19,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -33,6 +35,13 @@ public class DockerController {
     private ImageService imageService;
     @Autowired
     private NetworkService networkService;
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/count")
+    public CountResponseDTO countDocker() {
+        return new CountResponseDTO(containerService.countContainers(), imageService.countImages(),
+                volumeService.countVolumes(), networkService.countNetworks());
+    }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping("/containers")

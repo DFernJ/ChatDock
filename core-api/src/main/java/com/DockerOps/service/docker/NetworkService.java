@@ -69,6 +69,10 @@ public class NetworkService {
         return numNetworksBeforePrune - numNetworksAfterPrune;
     }
 
+    public int countNetworks() {
+        return dockerClient.listNetworksCmd().exec().size();
+    }
+
     private NetworkDTO formatNetwork(Network network, List<Container> containers) {
         return new NetworkDTO(
                 network.getId(),

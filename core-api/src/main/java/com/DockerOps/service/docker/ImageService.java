@@ -54,6 +54,10 @@ public class ImageService {
         return reclaimed != null ? reclaimed : 0;
     }
 
+    public int countImages() {
+        return dockerClient.listImagesCmd().withShowAll(true).exec().size();
+    }
+
     private ImageDTO formatImage(String id, String[] repoTags, Long size, Integer containers) {
         String image = (repoTags != null && repoTags.length > 0) ? repoTags[0] : "<none>:<none>";
         long diskUsage = size != null ? size : 0;

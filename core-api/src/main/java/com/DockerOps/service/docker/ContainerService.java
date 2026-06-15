@@ -128,6 +128,10 @@ public class ContainerService {
                 .exec();
     }
 
+    public int countContainers() {
+        return dockerClient.listContainersCmd().withShowAll(true).exec().size();
+    }
+
     private ContainerDTO formatContainer(Container c) {
         return new ContainerDTO(
                 c.getId(),

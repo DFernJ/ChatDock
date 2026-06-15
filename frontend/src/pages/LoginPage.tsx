@@ -3,6 +3,8 @@ import type { ChangeEvent, SubmitEvent, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {Topbar} from "../components/Topbar.tsx";
 import { useAuth } from "../context/AuthContext.tsx";
+import  {ApiError} from  "../lib/api.ts";
+import { register, signIn} from "../lib/api/auth.ts";
 
 type Tab = "signin" | "register";
 
@@ -108,20 +110,11 @@ function SignIn() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch("/api/auth/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ email: user, password: pass }),
-            });
-            if (!res.ok) {
-                setError("Invalid operator or secret");
-                return;
-            }
-            login(await res.json());
-            navigate("/dashboard");
-        } catch {
-            setError("Could not reach the daemon");
+            login(await signIn(user, pass));
+            navigate("/");
+        } catch (e) {
+              // setError(e instanceof ApiError ? "Invalid operator or secret": "Could not reach the daemon");
+                setError(e instanceof ApiError ? e.message : "Could not reach the daemon");
         } finally {
             setLoading(false);
         }
@@ -192,20 +185,10 @@ function Register({ onDone }: { onDone: () => void }) {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch("/api/auth/register", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ username: name, email, password: pass }),
-            });
-            if (!res.ok) {
-                setError("Could not create the operator account");
-                return;
-            }
-            login(await res.json());
-            navigate("/dashboard");
-        } catch {
-            setError("Could not reach the daemon");
+            login(await register(name, email, pass));
+            navigate("/");
+        } catch (e) {
+            setError(e instanceof ApiError ? "Could not create the operator account": "Could not reach the daemon");
         } finally {
             setLoading(false);
         }

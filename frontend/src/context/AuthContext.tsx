@@ -1,20 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
-
 import type { ReactNode } from "react";
-
-type AuthRole = 'user' | 'admin';
-type PermissionRole = 'viewer' | 'editor' | 'root';
-
-interface User {id: string; username: string; authRole: AuthRole; permissionRole: PermissionRole}
-
-type AuthStatus = 'loading' | 'no-auth' | 'auth';
-
-interface AuthContextValue {
-    user: User | null;
-    status: AuthStatus;
-    login: (user: User) => void;
-    logout: () => void;
-}
+import { AuthStatus, User, AuthContextValue } from "../types/auth.ts";
+import { authMe, logout } from "../lib/api/auth.ts";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -23,11 +10,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<AuthStatus>('loading');
 
     useEffect(() => {
-        fetch('/api/auth/me', { credentials: 'include' })
-            .then(res => (res.ok ? res.json() : null))
-            .then(data => {
-                setUser(data);
-                setStatus(data ? 'auth' : 'no-auth');
+        authMe().then(data => {
+            setUser(data)
+            setStatus(data ? 'auth' : 'no-auth')
             })
             .catch(() => setStatus('no-auth'));
     }, []);
@@ -37,14 +22,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('auth');
     };
 
-    const logout = () => {
-        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    const logoutAuth = () => {
+        logout().catch(() => {})
+        console.log("Logging out user:", user);
         setUser(null);
         setStatus('no-auth');
     };
 
     return (
-        <AuthContext.Provider value={{ user, status, login, logout }}>
+        <AuthContext.Provider value={{ user, status, login, logoutAuth }}>
             {children}
         </AuthContext.Provider>
     );

@@ -41,4 +41,10 @@ public class User extends Auditable {
 
     @Column(nullable = false, name = "enabled")
     private boolean enabled;
+
+    @Column(name = "github_id")
+    private Long githubId;
+
+    @Column(name = "discord_id")
+    private Long discordId;
 }
