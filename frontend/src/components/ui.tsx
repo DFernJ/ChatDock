@@ -102,6 +102,20 @@ export function Section({ title, subtitle, badge, count, children }: {
     );
 }
 
+export function SectionText({ id, index, title, children }: { id: string; index: string; title: string; children: ReactNode }) {
+    return (
+        <section id={id} className="scroll-mt-24 py-6 border-b border-ink-700 last:border-b-0">
+            <div className="flex items-center gap-3 mb-3">
+                <span className="w-7 h-7 shrink-0 grid place-items-center border border-ink-700 bg-ink-900/60 font-mono text-[11px] text-accent text-center">{index}</span>
+                <h2 className="font-sans text-[18px] tracking-tight text-ink-50">{title}</h2>
+            </div>
+            <div className="text-[14px] text-ink-300 leading-relaxed space-y-3">
+                {children}
+            </div>
+        </section>
+    );
+}
+
 export function EmptyState({ title, message }: { title: string; message: ReactNode }) {
     return (
         <div className="px-5 py-10 text-center">

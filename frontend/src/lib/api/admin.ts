@@ -1,16 +1,6 @@
 import type { AdminUserDTO, CodeDTO, CreateUserRequest, GenerateCodeRequest } from "../../types/admin.ts";
 import { request } from "../api.ts";
 
-/*
- * Backed by AdminController (core-api), all routes gated to PERM_ROOT:
- *   GET    /api/admin/users                 -> AdminUserResponse[]
- *   POST   /api/admin/users                 <- CreateUserRequest       -> AdminUserResponse
- *   PATCH  /api/admin/users/{id}             <- UpdateUserRequest       -> AdminUserResponse
- *   DELETE /api/admin/users/{id}
- *   GET    /api/admin/codes                 -> CodeResponse[]
- *   POST   /api/admin/codes                 <- GenerateCodeRequest     -> CodeResponse
- *   DELETE /api/admin/codes/{id}
- */
 const AdminPath: string = "/api/admin";
 
 export const listUsers = () =>

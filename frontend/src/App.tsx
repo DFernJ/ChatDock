@@ -3,6 +3,8 @@ import { useAuth } from "./context/AuthContext.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import AdminPage from "./pages/AdminPage.tsx";
 import ProfilePage from "./pages/ProfilePage.tsx";
+import LegalPage from "./pages/LegalPage.tsx";
+import TermsPage from "./pages/TermsPage.tsx";
 
 const PUBLIC_PATHS = ["/legal", "/terms"];
 
@@ -26,6 +28,8 @@ export default function App() {
           <Route path={"/admin"} element={
               status === "auth" && user?.authRole === "admin" ? <AdminPage /> : <Navigate to="/" replace />
           } />
+          <Route path={"/legal"} element={<LegalPage />} />
+          <Route path={"/terms"} element={<TermsPage />} />
       </Routes>
   )
 }

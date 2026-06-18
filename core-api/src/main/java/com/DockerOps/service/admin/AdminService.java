@@ -76,7 +76,7 @@ public class AdminService {
     }
 
     public List<Code> listCodes() {
-        return codeRepository.findAll();
+        return codeRepository.findAllByOrderByCreatedAtDesc();
     }
 
     public Code generateCode(GenerateCodeRequest request, User creator) {

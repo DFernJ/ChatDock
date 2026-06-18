@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent, SubmitEvent, ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {Topbar} from "../components/Topbar.tsx";
 import { useAuth } from "../context/AuthContext.tsx";
 import  {ApiError} from  "../lib/api.ts";
@@ -159,7 +159,9 @@ function Register({ onDone }: { onDone: () => void }) {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [pass, setPass] = useState("");
-    // const [agree, setAgree] = useState(false);
+    const [code, setCode] = useState("");
+    const [agree, setAgree] = useState(false);
+    const [show, setShow] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { login } = useAuth();
@@ -185,10 +187,10 @@ function Register({ onDone }: { onDone: () => void }) {
         setLoading(true);
         setError(null);
         try {
-            login(await register(name, email, pass));
+            login(await register(name, email, pass, code));
             navigate("/");
         } catch (e) {
-            setError(e instanceof ApiError ? "Could not create the operator account": "Could not reach the daemon");
+            setError(e instanceof ApiError ? e.message : "Could not reach the daemon");
         } finally {
             setLoading(false);
         }
@@ -205,11 +207,17 @@ function Register({ onDone }: { onDone: () => void }) {
             <Field label="Set a password">
                 <Input
                     icon="∗"
-                    type="password"
+                    type={show ? "text" : "password"}
                     value={pass}
                     onChange={(e) => setPass(e.target.value)}
                     placeholder="min. 8 characters"
                     autoComplete="new-password"
+                    trailing={
+                        <button type="button" onClick={() => setShow(s => !s)}
+                                className="px-3.5 text-[10px] tracking-[0.16em] uppercase text-ink-500 hover:text-ink-100 border-l border-ink-700">
+                            {show ? "hide" : "show"}
+                        </button>
+                    }
                 />
                 <div className="flex items-center gap-2 mt-1.5">
                     <div className="flex gap-1 flex-1">
@@ -220,21 +228,26 @@ function Register({ onDone }: { onDone: () => void }) {
                     <span className="text-[10px] uppercase tracking-[0.18em] text-ink-500 w-20 text-right">{labels[score]}</span>
                 </div>
             </Field>
-        {/*    <label className="flex items-center gap-2.5 mt-1 cursor-pointer select-none">*/}
-        {/*        <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="hidden peer" />*/}
-        {/*        <span className="w-3.5 h-3.5 border border-ink-600 bg-ink-900 grid place-items-center peer-checked:bg-accent peer-checked:border-accent transition shrink-0">*/}
-        {/*  <span className={`w-1.5 h-1.5 ${agree ? "bg-ink-900" : "bg-transparent"}`}></span>*/}
-        {/*</span>*/}
-        {/*        <span className="text-[14px] text-ink-300 leading-relaxed">*/}
-        {/*  I understand this is a self-hosted service and accept the local*/}
-        {/*            {" "}<a className="text-accent border-b border-dashed border-accent-line" href="/legal">terms and conditions</a>.*/}
-        {/*</span>*/}
-        {/*    </label>*/}
+            <Field label="Registration code" hint="required to join">
+                <Input icon="#" value={code} onChange={(e) => setCode(e.target.value)} placeholder="invite code" autoComplete="off" />
+            </Field>
+            <label className="flex items-center gap-2.5 mt-1 cursor-pointer select-none">
+                <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="hidden peer" />
+                <span className="w-3.5 h-3.5 border border-ink-600 bg-ink-900 grid place-items-center peer-checked:bg-accent peer-checked:border-accent transition shrink-0">
+                    <span className={`w-1.5 h-1.5 ${agree ? "bg-ink-900" : "bg-transparent"}`}></span>
+                </span>
+                <span className="text-[14px] text-ink-300 leading-relaxed">
+                    I understand this is a self-hosted service and accept the{" "}
+                    <Link className="text-accent border-b border-dashed border-accent-line" to="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</Link>
+                    {" "}and{" "}
+                    <Link className="text-accent border-b border-dashed border-accent-line" to="/legal" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
+                </span>
+            </label>
 
             {error && <p className="text-[12px] text-rose-400 font-mono">{error}</p>}
             <button
                 type="submit"
-                disabled={loading/*|| !agree*/}
+                disabled={loading || !agree}
                 className="mt-1 w-full bg-accent text-ink-900 font-mono text-[12px] font-semibold tracking-[0.18em] uppercase py-3.5 px-4 flex items-center justify-between hover:brightness-110 active:translate-y-px transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <span>{loading ? "Provisioning…" : "Create operator"}</span>
@@ -313,9 +326,11 @@ export default function LoginPage() {
                                 {tab === "signin" ? <SignIn /> : <Register onDone={() => setTab("signin")} />}
                             </div>
 
-                            {/*<div className="mt-6 pt-4 border-t border-dashed border-ink-700 flex justify-end items-center text-[11px] text-ink-500">*/}
-                            {/*    <a href="/legal" className="text-ink-300 hover:text-accent border-b border-dashed border-ink-700">Conditions and legal terms</a>*/}
-                            {/*</div>*/}
+                            <div className="mt-6 pt-4 border-t border-dashed border-ink-700 flex justify-end items-center gap-3 text-[11px] text-ink-500">
+                                <Link to="/legal" target="_blank" rel="noopener noreferrer" className="text-ink-300 hover:text-accent border-b border-dashed border-ink-700">Privacy Policy</Link>
+                                <span className="text-ink-700">·</span>
+                                <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-ink-300 hover:text-accent border-b border-dashed border-ink-700">Terms of Service</Link>
+                            </div>
                         </div>
                     </div>
 

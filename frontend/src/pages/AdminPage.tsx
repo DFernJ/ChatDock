@@ -26,7 +26,7 @@ import {
     Icon,
     Modal,
     Section,
-} from "../components/ui.tsx";
+} from "../components/Ui.tsx";
 
 function Select({ value, onChange, options }: {
     value: string;
@@ -455,7 +455,9 @@ export default function AdminPage() {
                     ) : codes.length === 0 ? (
                         <EmptyState title="No codes" message="No registration codes have been generated yet." />
                     ) : (
-                        codes.map(c => <CodeRow key={c.id} c={c} canMutate={canMutate} onDelete={setPendingCode} />)
+                        <div className="max-h-[420px] overflow-y-scroll overflow-x-hidden scrollbar">
+                            {codes.map(c => <CodeRow key={c.id} c={c} canMutate={canMutate} onDelete={setPendingCode} />)}
+                        </div>
                     )}
                 </Section>
 
@@ -466,18 +468,20 @@ export default function AdminPage() {
                     ) : users.length === 0 ? (
                         <EmptyState title="No users" message="No operators registered." />
                     ) : (
-                        users.map(u => (
-                            <UserRow
-                                key={u.id}
-                                u={u}
-                                selfId={user?.id}
-                                canMutate={canMutate}
-                                onToggleEnabled={toggleEnabled}
-                                onChangeAuthRole={changeAuthRole}
-                                onChangePermissionRole={changePermissionRole}
-                                onDelete={setPendingDeleteUser}
-                            />
-                        ))
+                        <div className="max-h-[420px] overflow-y-scroll overflow-x-hidden scrollbar">
+                            {users.map(u => (
+                                <UserRow
+                                    key={u.id}
+                                    u={u}
+                                    selfId={user?.id}
+                                    canMutate={canMutate}
+                                    onToggleEnabled={toggleEnabled}
+                                    onChangeAuthRole={changeAuthRole}
+                                    onChangePermissionRole={changePermissionRole}
+                                    onDelete={setPendingDeleteUser}
+                                />
+                            ))}
+                        </div>
                     )}
                 </Section>
             </main>

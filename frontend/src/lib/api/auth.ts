@@ -1,7 +1,6 @@
 import { User } from "../../types/auth.ts"
 import {request} from "../api.ts";
 
-/* Auth path */
 const AuthPath: string = "/api/auth"
 
 export const signIn = (email: string, password: string) =>
@@ -11,11 +10,11 @@ export const signIn = (email: string, password: string) =>
         body: JSON.stringify({ email: email, password: password })
     })
 
-export const register = (username: string, email: string, password: string) =>
+export const register = (username: string, email: string, password: string, code: string) =>
     request<User>(`${AuthPath}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username, email: email, password: password })
+        body: JSON.stringify({ username: username, email: email, password: password, code: code })
     })
 
 export const authMe = () =>

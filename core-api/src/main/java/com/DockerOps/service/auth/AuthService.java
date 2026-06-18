@@ -1,9 +1,12 @@
 package com.DockerOps.service.auth;
 
 import com.DockerOps.dto.request.RegisterRequest;
+import com.DockerOps.model.users.Code;
 import com.DockerOps.model.users.User;
+import com.DockerOps.model.users.enums.CodeType;
 import com.DockerOps.model.users.enums.UserAuthRole;
 import com.DockerOps.model.users.enums.UserPermissions;
+import com.DockerOps.repository.users.CodeRepository;
 import com.DockerOps.repository.users.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,6 +19,8 @@ public class AuthService {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private CodeRepository codeRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
 
@@ -31,6 +36,10 @@ public class AuthService {
             return null;
         }
 
+        Code code = codeRepository.findByCode(registerRequest.code())
+                .filter(c -> c.getCodeType() == CodeType.REGISTER && c.getRemainUses() > 0)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired registration code."));
+
         User user = User.builder()
                 .username(registerRequest.username())
                 .email(registerRequest.email())
@@ -40,6 +49,10 @@ public class AuthService {
                 .enabled(true)
                 .build();
         userRepository.save(user);
+
+        code.setRemainUses(code.getRemainUses() - 1);
+        codeRepository.save(code);
+
         return user;
     }
 

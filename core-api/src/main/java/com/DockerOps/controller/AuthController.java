@@ -47,6 +47,9 @@ public class AuthController {
         if (request.password() == null || request.password().length() < MIN_PASSWORD_LENGTH) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Password must be at least " + MIN_PASSWORD_LENGTH + " characters.");
         }
+        if (request.code() == null || request.code().isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Registration code is required.");
+        }
         User user = authService.registerUser(request);
         if (user == null) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
@@ -79,5 +82,10 @@ public class AuthController {
         } catch (JwtException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }
 }
