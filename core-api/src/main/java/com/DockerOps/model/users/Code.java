@@ -5,6 +5,7 @@ import com.DockerOps.model.users.enums.CodeType;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -31,4 +32,7 @@ public class Code extends Auditable {
     @Column(nullable = false, name = "code_type")
     @Enumerated(EnumType.STRING)
     private CodeType codeType;
+
+    @Column(name = "expires_at")
+    private Instant expiresAt;
 }

@@ -64,12 +64,9 @@ export function ActionBtn({ icon, label, onClick, disabled, variant = "default" 
             disabled={disabled}
             title={label}
             aria-label={label}
-            className={`group relative w-8 h-8 grid place-items-center border border-ink-700 bg-ink-900/40 transition disabled:opacity-30 disabled:cursor-not-allowed ${styles[variant]}`}
+            className={`w-8 h-8 grid place-items-center border border-ink-700 bg-ink-900/40 transition disabled:opacity-30 disabled:cursor-not-allowed ${styles[variant]}`}
         >
             <Icon name={icon} />
-            <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-ink-700 text-[10px] tracking-[0.14em] uppercase text-ink-100 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                {label}
-            </span>
         </button>
     );
 }
@@ -201,13 +198,13 @@ export function ConfirmDialog({ open, title, body, confirmLabel, danger, busy, o
     return (
         <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/60">
             <div className="w-full max-w-[440px] bg-ink-800 border border-ink-700 shadow-card">
-                <div className="px-5 py-4 border-b border-ink-700 font-mono text-[11px] text-ink-500">confirmar</div>
+                <div className="px-5 py-4 border-b border-ink-700 font-mono text-[11px] text-ink-500">confirm</div>
                 <div className="p-6">
                     <h3 className="font-sans text-[18px] tracking-tight text-ink-50">{title}</h3>
                     <p className="text-[12px] text-ink-400 leading-relaxed mt-2">{body}</p>
                     <div className="mt-5 flex justify-end gap-2">
                         <button type="button" onClick={onCancel} disabled={busy} className="px-4 py-2 border border-ink-700 text-ink-300 font-mono text-[11px] tracking-[0.18em] uppercase hover:bg-ink-900 disabled:opacity-50">
-                            Cancelar
+                            Cancel
                         </button>
                         <button
                             type="button"

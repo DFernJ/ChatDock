@@ -30,6 +30,7 @@ export default function App() {
           } />
           <Route path={"/legal"} element={<LegalPage />} />
           <Route path={"/terms"} element={<TermsPage />} />
+          <Route path={"/profile"} element={<ProfilePage />} />
       </Routes>
   )
 }

@@ -5,6 +5,7 @@ import {Topbar} from "../components/Topbar.tsx";
 import { useAuth } from "../context/AuthContext.tsx";
 import  {ApiError} from  "../lib/api.ts";
 import { register, signIn} from "../lib/api/auth.ts";
+import { MIN_PASSWORD_LENGTH, PASSWORD_STRENGTH_COLORS, PASSWORD_STRENGTH_LABELS, passwordStrength } from "../lib/passwordStrength.ts";
 
 type Tab = "signin" | "register";
 
@@ -153,8 +154,6 @@ function SignIn() {
     );
 }
 
-const MIN_PASSWORD_LENGTH = 8;
-
 function Register({ onDone }: { onDone: () => void }) {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -167,16 +166,7 @@ function Register({ onDone }: { onDone: () => void }) {
     const { login } = useAuth();
     const navigate = useNavigate();
 
-    const score: number = (() => {
-        let s = 0;
-        if (pass.length >= MIN_PASSWORD_LENGTH) s++;
-        if (/[A-Z]/.test(pass)) s++;
-        if (/\d/.test(pass)) s++;
-        if (/[^A-Za-z0-9]/.test(pass)) s++;
-        return s;
-    })();
-    const labels = ["empty", "weak", "ok", "strong", "excellent"];
-    const colors = ["bg-ink-700", "bg-rose-400", "bg-amber-300", "bg-lime-300", "bg-accent"];
+    const score = passwordStrength(pass);
 
     const submit = async (e: SubmitEvent) => {
         e.preventDefault();
@@ -222,10 +212,10 @@ function Register({ onDone }: { onDone: () => void }) {
                 <div className="flex items-center gap-2 mt-1.5">
                     <div className="flex gap-1 flex-1">
                         {[0, 1, 2, 3].map(i => (
-                            <span key={i} className={`h-0.75 flex-1 ${i < score ? colors[score] : "bg-ink-700"}`}></span>
+                            <span key={i} className={`h-0.75 flex-1 ${i < score ? PASSWORD_STRENGTH_COLORS[score] : "bg-ink-700"}`}></span>
                         ))}
                     </div>
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-ink-500 w-20 text-right">{labels[score]}</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-ink-500 w-20 text-right">{PASSWORD_STRENGTH_LABELS[score]}</span>
                 </div>
             </Field>
             <Field label="Registration code" hint="required to join">

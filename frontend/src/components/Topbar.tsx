@@ -27,7 +27,7 @@ const NavItems: NavItem[] = [
 
 function Logo() {
     return (
-        <div className="flex items-center gap-3">
+        <NavLink to="/" className="flex items-center gap-3">
             <div className="relative">
                 <div className="w-8 h-8 grid place-items-center bg-accent text-ink-900 font-mono font-bold text-[13px] shadow-[0_0_0_1px_rgba(190,242,100,0.4),0_8px_24px_-8px_#bef264]">
                     /&gt;
@@ -37,7 +37,7 @@ function Logo() {
             <div className="font-mono text-[20px] tracking-tight text-ink-50">
                 Chat<span className="font-bold">Ops</span>
             </div>
-        </div>
+        </NavLink>
     );
 }
 
@@ -89,7 +89,7 @@ function UserMenu() {
                             onClick={() => { setOpen(false); navigate("/profile"); }}
                             className="w-full text-right px-3 py-2 text-ink-300 hover:bg-ink-700 hover:text-accent transition border-b border-ink-700"
                         >
-                            Profile
+                            Your Profile
                         </button>
                         <button
                             type="button"

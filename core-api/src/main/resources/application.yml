@@ -20,6 +20,7 @@ server:
   port: ${CORE_API_PORT}
 
 app:
+  public-url: ${APP_PUBLIC_URL}
   security:
     jwt:
       secret: ${JWT_SECRET}
@@ -33,6 +34,9 @@ app:
       allow-origin: ${CORS_ALLOW_ORIGIN}
   bot-service:
     url: ${BOT_SERVICE_URL}
+  github:
+    client-id: ${GITHUB_APP_CLIENT_ID}
+    client-secret: ${GITHUB_APP_CLIENT_SECRET}
   cloudflare:
     api-token: ${CLOUDFLARE_API_TOKEN}
     zone-id: ${CLOUDFLARE_ZONE_ID}

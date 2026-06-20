@@ -1,5 +1,6 @@
 package com.DockerOps.model.users;
 
+import com.DockerOps.converter.SecretValueConverter;
 import com.DockerOps.model.Auditable;
 import com.DockerOps.model.users.enums.UserAuthRole;
 import com.DockerOps.model.users.enums.UserPermissions;
@@ -42,9 +43,19 @@ public class User extends Auditable {
     @Column(nullable = false, name = "enabled")
     private boolean enabled;
 
-    @Column(name = "github_id")
+    @Column(name = "github_id", unique = true)
     private Long githubId;
 
-    @Column(name = "discord_id")
+    @Column(name = "github_username")
+    private String githubUsername;
+
+    @Convert(converter = SecretValueConverter.class)
+    @Column(name = "github_access_token")
+    private String githubAccessToken;
+
+    @Column(name = "discord_id", unique = true)
     private Long discordId;
+
+    @Column(name = "discord_username")
+    private String discordUsername;
 }

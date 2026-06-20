@@ -10,21 +10,16 @@ import com.DockerOps.model.users.enums.UserAuthRole;
 import com.DockerOps.model.users.enums.UserPermissions;
 import com.DockerOps.repository.users.CodeRepository;
 import com.DockerOps.repository.users.UserRepository;
+import com.DockerOps.service.users.CodeGeneratorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class AdminService {
-
-    private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final int CODE_LENGTH = 12;
-
-    private final SecureRandom random = new SecureRandom();
 
     @Autowired
     private UserRepository userRepository;
@@ -32,6 +27,8 @@ public class AdminService {
     private CodeRepository codeRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private CodeGeneratorService codeGeneratorService;
 
     public List<User> listUsers() {
         return userRepository.findAll();
@@ -83,12 +80,16 @@ public class AdminService {
         if (request.uses() == null || request.uses() < 1) {
             throw new IllegalArgumentException("uses must be at least 1");
         }
+        CodeType codeType = CodeType.valueOf(request.codeType().toUpperCase());
+        if (codeType != CodeType.REGISTER) {
+            throw new IllegalArgumentException("Only registration codes can be generated from the admin panel.");
+        }
         Code code = Code.builder()
                 .id(UUID.randomUUID())
-                .code(generateUniqueCode())
+                .code(codeGeneratorService.generateUniqueCode())
                 .user(creator)
                 .remainUses(request.uses())
-                .codeType(CodeType.valueOf(request.codeType().toUpperCase()))
+                .codeType(codeType)
                 .build();
         return codeRepository.save(code);
     }
@@ -99,17 +100,5 @@ public class AdminService {
         }
         codeRepository.deleteById(id);
         return true;
-    }
-
-    private String generateUniqueCode() {
-        String candidate;
-        do {
-            StringBuilder sb = new StringBuilder(CODE_LENGTH);
-            for (int i = 0; i < CODE_LENGTH; i++) {
-                sb.append(CODE_CHARS.charAt(random.nextInt(CODE_CHARS.length())));
-            }
-            candidate = sb.toString();
-        } while (codeRepository.existsByCode(candidate));
-        return candidate;
     }
 }

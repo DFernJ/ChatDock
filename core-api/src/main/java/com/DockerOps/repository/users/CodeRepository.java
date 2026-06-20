@@ -1,6 +1,8 @@
 package com.DockerOps.repository.users;
 
 import com.DockerOps.model.users.Code;
+import com.DockerOps.model.users.User;
+import com.DockerOps.model.users.enums.CodeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,4 +18,6 @@ public interface CodeRepository extends JpaRepository<Code, UUID> {
     Optional<Code> findByCode(String code);
 
     List<Code> findAllByOrderByCreatedAtDesc();
+
+    void deleteByUserAndCodeType(User user, CodeType codeType);
 }

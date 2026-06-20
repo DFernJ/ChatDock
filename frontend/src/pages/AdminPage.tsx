@@ -15,6 +15,7 @@ import {
 } from "../lib/api/admin.ts";
 import { useAuth } from "../context/AuthContext.tsx";
 import { canDelete } from "../lib/permissions.ts";
+import { MIN_PASSWORD_LENGTH, PASSWORD_STRENGTH_COLORS, PASSWORD_STRENGTH_LABELS, passwordStrength } from "../lib/passwordStrength.ts";
 import type { AuthRole, PermissionRole } from "../types/auth.ts";
 import type { AdminUserDTO, CodeDTO, CodeType } from "../types/admin.ts";
 import {
@@ -138,8 +139,6 @@ function UserRow({ u, selfId, canMutate, onToggleEnabled, onChangeAuthRole, onCh
     );
 }
 
-const MIN_PASSWORD_LENGTH = 8;
-
 function NewUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
@@ -149,16 +148,7 @@ function NewUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const score: number = (() => {
-        let s = 0;
-        if (password.length >= MIN_PASSWORD_LENGTH) s++;
-        if (/[A-Z]/.test(password)) s++;
-        if (/\d/.test(password)) s++;
-        if (/[^A-Za-z0-9]/.test(password)) s++;
-        return s;
-    })();
-    const strengthLabels = ["empty", "weak", "ok", "strong", "excellent"];
-    const strengthColors = ["bg-ink-700", "bg-rose-400", "bg-amber-300", "bg-lime-300", "bg-accent"];
+    const score = passwordStrength(password);
 
     const submit = async (e: SubmitEvent) => {
         e.preventDefault();
@@ -226,10 +216,10 @@ function NewUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
                     <div className="flex items-center gap-2 mt-1.5">
                         <div className="flex gap-1 flex-1">
                             {[0, 1, 2, 3].map(i => (
-                                <span key={i} className={`h-0.75 flex-1 ${i < score ? strengthColors[score] : "bg-ink-700"}`}></span>
+                                <span key={i} className={`h-0.75 flex-1 ${i < score ? PASSWORD_STRENGTH_COLORS[score] : "bg-ink-700"}`}></span>
                             ))}
                         </div>
-                        <span className="text-[10px] uppercase tracking-[0.18em] text-ink-500 w-20 text-right">{strengthLabels[score]}</span>
+                        <span className="text-[10px] uppercase tracking-[0.18em] text-ink-500 w-20 text-right">{PASSWORD_STRENGTH_LABELS[score]}</span>
                     </div>
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
@@ -251,7 +241,6 @@ function NewUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
 }
 
 function GenerateCodeModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-    const [codeType, setCodeType] = useState<CodeType>("register");
     const [uses, setUses] = useState(1);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -261,7 +250,7 @@ function GenerateCodeModal({ onClose, onCreated }: { onClose: () => void; onCrea
         setBusy(true);
         setError(null);
         try {
-            await generateCode({ codeType, uses });
+            await generateCode({ codeType: "register", uses });
             onCreated();
         } catch (e) {
             setError(e instanceof ApiError ? e.message : "Could not generate the code");
@@ -274,7 +263,7 @@ function GenerateCodeModal({ onClose, onCreated }: { onClose: () => void; onCrea
         <Modal
             title="Generate registration code"
             subtitle="The code can be used to onboard new operators."
-            path="admin/codes/new"
+            path="admin/codes/register/new"
             onClose={onClose}
             footer={
                 <>
@@ -289,11 +278,7 @@ function GenerateCodeModal({ onClose, onCreated }: { onClose: () => void; onCrea
         >
             <form id="new-code-form" onSubmit={submit} className="flex flex-col gap-4">
                 <Field label="Type">
-                    <Select
-                        value={codeType}
-                        onChange={(v) => setCodeType(v as CodeType)}
-                        options={[{ value: "register", label: "register" }, { value: "discord", label: "discord" }]}
-                    />
+                    <StaticBox className={`tracking-[0.16em] uppercase ${CODE_TYPE_META.register}`}>register</StaticBox>
                 </Field>
                 <Field label="Uses">
                     <input
