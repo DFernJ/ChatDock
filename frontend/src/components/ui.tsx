@@ -14,7 +14,7 @@ export function formatBytes(bytes: number): string {
 
 type IconName =
     | "play" | "stop" | "reset" | "trash" | "open" | "import"
-    | "search" | "x" | "chev" | "download" | "link" | "unlink" | "refresh" | "plus";
+    | "search" | "x" | "chev" | "download" | "link" | "unlink" | "refresh" | "plus" | "edit" | "pulse" | "eye" | "eyeOff";
 
 export function Icon({ name, className = "w-3.5 h-3.5" }: { name: IconName; className?: string }) {
     switch (name) {
@@ -32,6 +32,10 @@ export function Icon({ name, className = "w-3.5 h-3.5" }: { name: IconName; clas
         case "link":     return <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M6.5 9.5l3-3M6 5.5H4.5A2.5 2.5 0 0 0 2 8v0a2.5 2.5 0 0 0 2.5 2.5H6M10 5.5h1.5A2.5 2.5 0 0 1 14 8v0a2.5 2.5 0 0 1-2.5 2.5H10"/></svg>;
         case "unlink":   return <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 2l12 12M6 5.5H4.5A2.5 2.5 0 0 0 2 8v0a2.5 2.5 0 0 0 2.5 2.5H6M10 5.5h1.5A2.5 2.5 0 0 1 14 8v0a2.5 2.5 0 0 1-2.5 2.5H10"/></svg>;
         case "plus":     return <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M3 8h10"/></svg>;
+        case "edit":     return <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M11 2l3 3-8 8-3.5 1L3 10.5z"/><path d="M9.5 3.5l3 3"/></svg>;
+        case "pulse":    return <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round"><path d="M1.5 8.5h3l1.5-4 2.5 7 1.5-3h4.5"/></svg>;
+        case "eye":      return <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1 8s2.5-4.5 7-4.5S15 8 15 8s-2.5 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg>;
+        case "eyeOff":   return <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 2l12 12M6.6 6.6A2 2 0 0 0 8 10a2 2 0 0 0 1.9-1.3M4.2 4.9C2.6 5.9 1 8 1 8s2.5 4.5 7 4.5c1.1 0 2-.2 2.9-.6M11.6 5.6C13.1 6.1 15 8 15 8s-.7 1.2-1.9 2.4"/></svg>;
         default:         return null;
     }
 }
@@ -49,30 +53,35 @@ export function Bar({ value, accent = false }: { value: number; accent?: boolean
 
 type ActionVariant = "default" | "primary" | "danger";
 
-export function ActionBtn({ icon, label, onClick, disabled, variant = "default" }: {
-    icon: IconName; label: string; onClick?: () => void; disabled?: boolean; variant?: ActionVariant;
+export function ActionBtn({ icon, label, onClick, disabled, variant = "default", disabledReason }: {
+    icon: IconName; label: string; onClick?: () => void; disabled?: boolean; variant?: ActionVariant; disabledReason?: string;
 }) {
     const styles: Record<ActionVariant, string> = {
         default: "text-ink-300 hover:text-ink-50 hover:bg-ink-800 hover:border-ink-600",
         primary: "text-accent hover:bg-accent-soft hover:border-accent-line",
         danger:  "text-rose-300 hover:bg-rose-500/10 hover:border-rose-400/50",
     };
+    const tooltip = disabled && disabledReason ? disabledReason : label;
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            title={label}
-            aria-label={label}
-            className={`w-8 h-8 grid place-items-center border border-ink-700 bg-ink-900/40 transition disabled:opacity-30 disabled:cursor-not-allowed ${styles[variant]}`}
-        >
-            <Icon name={icon} />
-        </button>
+        <span className="group relative inline-flex">
+            <button
+                type="button"
+                onClick={onClick}
+                disabled={disabled}
+                aria-label={label}
+                className={`w-8 h-8 grid place-items-center border border-ink-700 bg-ink-900/40 transition disabled:opacity-30 disabled:cursor-not-allowed ${styles[variant]}`}
+            >
+                <Icon name={icon} />
+            </button>
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[200px] px-2.5 py-1.5 border border-ink-600 bg-ink-900 text-[11px] leading-snug text-ink-100 text-center normal-case tracking-normal opacity-0 group-hover:opacity-100 transition z-30 whitespace-normal">
+                {tooltip}
+            </span>
+        </span>
     );
 }
 
-export function Section({ title, subtitle, badge, count, children }: {
-    title: string; subtitle: string; badge: string; count: number; children: ReactNode;
+export function Section({ title, subtitle, badge, count, headerAction, children }: {
+    title: string; subtitle: string; badge: string; count: number; headerAction?: ReactNode; children: ReactNode;
 }) {
     const [collapsed, setCollapsed] = useState(false);
     return (
@@ -93,6 +102,7 @@ export function Section({ title, subtitle, badge, count, children }: {
                         <p className="text-[11px] text-ink-500 mt-0.5 font-mono">{subtitle}</p>
                     </div>
                 </div>
+                {headerAction}
             </header>
             {!collapsed && children}
         </section>
@@ -153,7 +163,7 @@ export function Toolbar({
                 <input
                     value={search}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value)}
-                    placeholder="buscar nombre o imagen…"
+                    placeholder="search name or image…"
                     className="bg-transparent border-0 text-ink-50 font-mono text-[12px] py-2 pr-3 w-56 placeholder:text-ink-600"
                 />
             </div>

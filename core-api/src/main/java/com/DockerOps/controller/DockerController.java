@@ -1,11 +1,22 @@
 package com.DockerOps.controller;
 
+import com.DockerOps.dto.container.ContainerConfigDTO;
 import com.DockerOps.dto.container.ContainerDTO;
 import com.DockerOps.dto.container.ContainerStatsDTO;
 import com.DockerOps.dto.image.ImageDTO;
 import com.DockerOps.dto.network.NetworkDTO;
+import com.DockerOps.dto.request.AssignContainerRequest;
+import com.DockerOps.dto.request.CreateAppSecretRequest;
+import com.DockerOps.dto.request.CreateStackRequest;
+import com.DockerOps.dto.request.UpdateAppSecretRequest;
+import com.DockerOps.dto.request.UpdateContainerRequest;
+import com.DockerOps.dto.response.AppSecretResponse;
+import com.DockerOps.dto.response.AppSummaryResponse;
 import com.DockerOps.dto.response.CountResponseDTO;
+import com.DockerOps.dto.response.SecretValueResponse;
+import com.DockerOps.dto.response.StackResponse;
 import com.DockerOps.dto.volume.VolumeDTO;
+import com.DockerOps.model.users.User;
 import com.DockerOps.service.docker.ContainerService;
 import com.DockerOps.service.docker.ImageService;
 import com.DockerOps.service.docker.NetworkService;
@@ -18,10 +29,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/docker")
@@ -50,9 +63,113 @@ public class DockerController {
     }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/containers/stats")
+    public List<ContainerStatsDTO> getContainersStats() {
+        return containerService.listStats();
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping("/containers/{containerId}")
     public ContainerStatsDTO getContainerInfo(@PathVariable String containerId) {
         return containerService.getStats(containerId);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/containers/{containerId}/config")
+    public ContainerConfigDTO getContainerConfig(@PathVariable String containerId) {
+        return containerService.getContainerConfig(containerId);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @PatchMapping("/containers/{containerId}")
+    public ContainerDTO updateContainer(@PathVariable String containerId, @RequestBody UpdateContainerRequest request) {
+        return containerService.updateContainer(containerId, request);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/stacks")
+    public List<StackResponse> getStacks() {
+        return containerService.listStacks();
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @PostMapping("/stacks")
+    public StackResponse createStack(@RequestBody CreateStackRequest request, Authentication authentication) {
+        return containerService.createStack(request, currentUser(authentication));
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @PatchMapping("/stacks/{stackId}")
+    public StackResponse renameStack(@PathVariable UUID stackId, @RequestBody CreateStackRequest request) {
+        return containerService.renameStack(stackId, request);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @DeleteMapping("/stacks/{stackId}")
+    public ResponseEntity<String> deleteStack(@PathVariable UUID stackId) {
+        containerService.deleteStack(stackId);
+        return ResponseEntity.ok("Stack deleted successfully");
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/stacks/{stackId}/apps")
+    public List<AppSummaryResponse> listStackApps(@PathVariable UUID stackId) {
+        return containerService.listAppsForStack(stackId);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @DeleteMapping("/stacks/{stackId}/apps/{appId}")
+    public ResponseEntity<String> removeApp(@PathVariable UUID stackId, @PathVariable UUID appId) {
+        containerService.removeApp(stackId, appId);
+        return ResponseEntity.ok("App removed from stack successfully");
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @PostMapping("/containers/{containerId}/assign")
+    public ResponseEntity<String> assignContainer(
+            @PathVariable String containerId,
+            @RequestBody AssignContainerRequest request,
+            Authentication authentication) {
+        containerService.assignContainer(containerId, request, currentUser(authentication));
+        return ResponseEntity.status(HttpStatus.CREATED).body("Container assigned to stack successfully");
+    }
+
+    private User currentUser(Authentication authentication) {
+        return (User) authentication.getPrincipal();
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/containers/{containerId}/secrets")
+    public List<AppSecretResponse> listSecrets(@PathVariable String containerId) {
+        return containerService.listSecrets(containerId);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/containers/{containerId}/secrets/{secretId}/value")
+    public SecretValueResponse getSecretValue(@PathVariable String containerId, @PathVariable UUID secretId) {
+        return new SecretValueResponse(containerService.getSecretValue(containerId, secretId));
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @PostMapping("/containers/{containerId}/secrets")
+    public AppSecretResponse createSecret(@PathVariable String containerId, @RequestBody CreateAppSecretRequest request) {
+        return containerService.createSecret(containerId, request);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @PatchMapping("/containers/{containerId}/secrets/{secretId}")
+    public AppSecretResponse updateSecret(
+            @PathVariable String containerId,
+            @PathVariable UUID secretId,
+            @RequestBody UpdateAppSecretRequest request) {
+        return containerService.updateSecret(containerId, secretId, request);
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @DeleteMapping("/containers/{containerId}/secrets/{secretId}")
+    public ResponseEntity<String> deleteSecret(@PathVariable String containerId, @PathVariable UUID secretId) {
+        containerService.deleteSecret(containerId, secretId);
+        return ResponseEntity.ok("Secret deleted successfully");
     }
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")
@@ -205,6 +322,11 @@ public class DockerController {
     public ResponseEntity<String> pruneNetworks() {
         int networksPruned = networkService.pruneNetworks();
         return ResponseEntity.ok("Networks pruned successfully. Networks pruned: " + networksPruned);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
     }
 
     @ExceptionHandler(DockerException.class)

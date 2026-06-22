@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { ChangeEvent, ReactNode, SubmitEvent } from "react";
-import { Topbar } from "../components/Topbar.tsx";
 import { useAuth } from "../context/AuthContext.tsx";
 import { ApiError } from "../lib/api.ts";
 import {
@@ -298,9 +297,7 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="relative min-h-screen w-full bg-stage bg-grid overflow-hidden">
-            <Topbar variant={"auth"} />
-
+        <>
             <main className="relative z-10 max-w-[720px] mx-auto px-6 py-8 space-y-6">
                 <div>
                     <h1 className="font-sans text-[36px] leading-[1.05] tracking-tight text-ink-50">Profile</h1>
@@ -435,6 +432,6 @@ export default function ProfilePage() {
                 onCancel={() => setPendingUnlinkGithub(false)}
                 onConfirm={confirmUnlinkGithub}
             />
-        </div>
+        </>
     )
 }

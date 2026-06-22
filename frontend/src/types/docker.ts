@@ -14,6 +14,52 @@ export interface ContainerDTO {
     state: string;
     networks: string[];
     mounts: string[];
+    essential: boolean;
+    stackName: string | null;
+}
+
+export interface ContainerVolumeDTO {
+    volumeName: string;
+    target: string;
+    readOnly: boolean;
+}
+
+export interface ContainerConfigDTO {
+    id: string;
+    memoryBytes: number | null;
+    nanoCPUs: number | null;
+    restartPolicyName: string | null;
+    restartPolicyMaxRetryCount: number | null;
+    networks: string[];
+    volumes: ContainerVolumeDTO[];
+}
+
+export interface UpdateContainerRequest {
+    memoryBytes: number | null;
+    nanoCPUs: number | null;
+    restartPolicyName: string | null;
+    restartPolicyMaxRetryCount: number | null;
+    networks: string[] | null;
+    volumes: ContainerVolumeDTO[] | null;
+}
+
+export interface AppSecretDTO {
+    id: string;
+    secretName: string;
+    updatedAt: string;
+}
+
+export interface StackDTO {
+    id: string;
+    stackName: string;
+    appCount: number;
+    createdAt: string;
+}
+
+export interface AppSummaryDTO {
+    id: string;
+    name: string;
+    containerName: string;
 }
 
 export interface ContainerStatsDTO {

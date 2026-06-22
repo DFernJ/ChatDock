@@ -1,29 +1,34 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.tsx";
 import { getCounts } from "../lib/api/docker.ts";
 import type { CountDTO } from "../types/docker.ts";
 
 type TopbarVariantPage = 'no-auth' | 'auth'
-export type DashboardView = 'containers' | 'images' | 'networks' | 'volumes' | 'adminPanel';
+export type DashboardView = 'containers' | 'images' | 'networks' | 'volumes';
 
 interface TopbarProps {
     variant: TopbarVariantPage;
-    activeView?: DashboardView;
-    onSelectView?: (view: DashboardView) => void;
 }
 interface NavItem {
     label: string;
-    view: DashboardView;
+    view: DashboardView | "adminPanel";
+    path: string;
 }
 
 const NavItems: NavItem[] = [
-    { label: "Containers", view: "containers" },
-    { label: "Images", view: "images" },
-    { label: "Networks", view: "networks" },
-    { label: "Volumes", view: "volumes" },
-    { label: "Admin panel", view: "adminPanel"}
+    { label: "Containers", view: "containers", path: "/" },
+    { label: "Images", view: "images", path: "/" },
+    { label: "Networks", view: "networks", path: "/" },
+    { label: "Volumes", view: "volumes", path: "/" },
+    { label: "Admin panel", view: "adminPanel", path: "/admin" }
 ]
+
+export function resolveDashboardView(state: unknown): DashboardView {
+    const view = (state as { view?: DashboardView } | null)?.view;
+    if (view === "images" || view === "networks" || view === "volumes") return view;
+    return "containers";
+}
 
 function Logo() {
     return (
@@ -35,7 +40,7 @@ function Logo() {
                 <div className="absolute -inset-0.75 border border-dashed border-accent-line pointer-events-none"></div>
             </div>
             <div className="font-mono text-[20px] tracking-tight text-ink-50">
-                Chat<span className="font-bold">Ops</span>
+                Chat<span className="font-bold">Dock</span>
             </div>
         </NavLink>
     );
@@ -105,10 +110,15 @@ function UserMenu() {
     );
 }
 
-export function Topbar({ variant, activeView, onSelectView }: TopbarProps) {
+export function Topbar({ variant }: TopbarProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const navItems = NavItems.filter(item => item.view !== 'adminPanel' || user?.authRole === 'admin');
+    const activeView: DashboardView | "adminPanel" | undefined =
+        location.pathname === "/admin" ? "adminPanel"
+        : location.pathname === "/" ? resolveDashboardView(location.state)
+        : undefined;
     const [counts, setCounts] = useState<CountDTO | null>(null);
 
     useEffect(() => {
@@ -133,7 +143,7 @@ export function Topbar({ variant, activeView, onSelectView }: TopbarProps) {
                                     <button
                                         key={item.view}
                                         type="button"
-                                        onClick={() => item.view === 'adminPanel' ? navigate('/admin') : onSelectView?.(item.view)}
+                                        onClick={() => navigate(item.path, item.view === "adminPanel" ? undefined : { state: { view: item.view } })}
                                         className={[
                                             "flex items-center gap-1.5 px-3 py-1.5 transition",
                                             isActive

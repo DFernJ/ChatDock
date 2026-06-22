@@ -10,5 +10,7 @@ public record ContainerDTO(
         String status,
         String state,
         List<String> networks,
-        List<String> mounts
+        List<String> mounts,
+        boolean essential,
+        String stackName
 ) {}

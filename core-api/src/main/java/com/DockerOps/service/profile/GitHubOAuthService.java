@@ -9,11 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
-/**
- * Handles the GitHub App "user authorization" (OAuth) flow used to identify which
- * GitHub account belongs to which operator. Only reads the user's public identity
- * (id, login) - no repository access is requested.
- */
 @Service
 public class GitHubOAuthService {
 
@@ -73,10 +68,6 @@ public class GitHubOAuthService {
         return new GitHubUser(user.id(), user.login(), token.accessToken());
     }
 
-    /**
-     * Revokes the app's authorization grant for the given access token, so GitHub
-     * shows the consent screen again next time the user starts the link flow.
-     */
     public void revokeAccess(String accessToken) {
         restClient.method(HttpMethod.DELETE)
                 .uri(GRANT_URL, clientId)

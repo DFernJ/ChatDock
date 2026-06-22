@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent, ReactNode, SubmitEvent } from "react";
-import { Topbar } from "../components/Topbar.tsx";
 import { ApiError } from "../lib/api.ts";
 import {
     createUser,
@@ -403,9 +402,7 @@ export default function AdminPage() {
     const canMutate = canDelete(user?.permissionRole);
 
     return (
-        <div className="relative min-h-screen w-full bg-stage bg-grid overflow-hidden">
-            <Topbar variant="auth" activeView="adminPanel" />
-
+        <>
             <main className="relative z-10 max-w-[1320px] mx-auto px-6 py-8 space-y-6">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
@@ -498,6 +495,6 @@ export default function AdminPage() {
                 onCancel={() => setPendingDeleteUser(null)}
                 onConfirm={confirmDeleteUser}
             />
-        </div>
+        </>
     );
 }

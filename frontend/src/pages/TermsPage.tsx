@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { Topbar } from "../components/Topbar.tsx";
-import { useAuth } from "../context/AuthContext.tsx";
 import { SectionText } from "../components/Ui.tsx";
 
 interface TocItem {
@@ -25,10 +24,9 @@ const SECTIONS: TocItem[] = [
 ];
 
 export default function TermsPage() {
-    const { status } = useAuth();
     return (
         <div className="relative min-h-screen w-full bg-stage bg-grid overflow-hidden">
-            <Topbar variant={status === "auth" ? "auth" : "no-auth"}/>
+            <Topbar variant={"no-auth"}/>
 
             <main className="relative z-10 max-w-[1040px] mx-auto px-6 py-10 sm:py-14">
                 <div className="mb-8 fade d1">

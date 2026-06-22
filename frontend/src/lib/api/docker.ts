@@ -1,4 +1,4 @@
-import { CountDTO, ContainerDTO, ContainerStatsDTO, ImageDTO, NetworkDTO, VolumeDTO } from "../../types/docker.ts"
+import { AppSecretDTO, AppSummaryDTO, CountDTO, ContainerConfigDTO, ContainerDTO, ContainerStatsDTO, ImageDTO, NetworkDTO, StackDTO, UpdateContainerRequest, VolumeDTO } from "../../types/docker.ts"
 import {ApiError, request, searchParams} from "../api.ts";
 
 const DockerPath: string = "/api/docker"
@@ -13,9 +13,96 @@ export const listContainers = () =>
         method: "GET"
     });
 
+export const getContainersStats = () =>
+    request<ContainerStatsDTO[]>(`${DockerPath}/containers/stats`, {
+        method: "GET"
+    });
+
 export const getContainerStats = (id: string) =>
     request<ContainerStatsDTO>(`${DockerPath}/containers/${id}`, {
         method: "GET"
+    });
+
+export const getContainerConfig = (id: string) =>
+    request<ContainerConfigDTO>(`${DockerPath}/containers/${id}/config`, {
+        method: "GET"
+    });
+
+export const updateContainer = (id: string, body: UpdateContainerRequest) =>
+    request<ContainerDTO>(`${DockerPath}/containers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+
+export const listContainerSecrets = (id: string) =>
+    request<AppSecretDTO[]>(`${DockerPath}/containers/${id}/secrets`, {
+        method: "GET"
+    });
+
+export const createContainerSecret = (id: string, secretName: string, secretValue: string) =>
+    request<AppSecretDTO>(`${DockerPath}/containers/${id}/secrets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secretName, secretValue })
+    });
+
+export const updateContainerSecret = (id: string, secretId: string, secretValue: string) =>
+    request<AppSecretDTO>(`${DockerPath}/containers/${id}/secrets/${secretId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secretValue })
+    });
+
+export const deleteContainerSecret = (id: string, secretId: string) =>
+    request<void>(`${DockerPath}/containers/${id}/secrets/${secretId}`, {
+        method: "DELETE"
+    });
+
+export const getContainerSecretValue = (id: string, secretId: string) =>
+    request<{ secretValue: string }>(`${DockerPath}/containers/${id}/secrets/${secretId}/value`, {
+        method: "GET"
+    });
+
+export const listStacks = () =>
+    request<StackDTO[]>(`${DockerPath}/stacks`, {
+        method: "GET"
+    });
+
+export const createStack = (stackName: string) =>
+    request<StackDTO>(`${DockerPath}/stacks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stackName })
+    });
+
+export const updateStack = (stackId: string, stackName: string) =>
+    request<StackDTO>(`${DockerPath}/stacks/${stackId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stackName })
+    });
+
+export const deleteStack = (stackId: string) =>
+    request<void>(`${DockerPath}/stacks/${stackId}`, {
+        method: "DELETE"
+    });
+
+export const listStackApps = (stackId: string) =>
+    request<AppSummaryDTO[]>(`${DockerPath}/stacks/${stackId}/apps`, {
+        method: "GET"
+    });
+
+export const removeAppFromStack = (stackId: string, appId: string) =>
+    request<void>(`${DockerPath}/stacks/${stackId}/apps/${appId}`, {
+        method: "DELETE"
+    });
+
+export const assignContainerToStack = (id: string, appName: string, stackName: string) =>
+    request<void>(`${DockerPath}/containers/${id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appName, stackName })
     });
 
 export const startContainer = (id: string) =>
@@ -37,6 +124,15 @@ export const deleteContainer = (id: string, force = false, removeVolumes = false
     request<void>(`${DockerPath}/containers/${id}/delete${searchParams({ force, removeVolumes })}`, {
         method: "DELETE"
     });
+
+export async function getContainerLogsText(id: string): Promise<string> {
+    const res = await fetch(`${DockerPath}/containers/${id}/logs`, {
+        method: "POST",
+        credentials: "include"
+    });
+    if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => "Unable to fetch logs"));
+    return res.text();
+}
 
 export async function downloadContainerLogs(id: string, name: string): Promise<void> {
     const res = await fetch(`${DockerPath}/containers/${id}/logs`, {
