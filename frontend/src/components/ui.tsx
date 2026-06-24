@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export function clamp(n: number, lo = 0, hi = 100) {
     return Math.max(lo, Math.min(hi, n));
@@ -62,8 +63,23 @@ export function ActionBtn({ icon, label, onClick, disabled, variant = "default",
         danger:  "text-rose-300 hover:bg-rose-500/10 hover:border-rose-400/50",
     };
     const tooltip = disabled && disabledReason ? disabledReason : label;
+    const wrapperRef = useRef<HTMLSpanElement>(null);
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+    const showTooltip = () => {
+        const rect = wrapperRef.current?.getBoundingClientRect();
+        if (rect) setPos({ top: rect.top - 8, left: rect.left + rect.width / 2 });
+    };
+    const hideTooltip = () => setPos(null);
+
+    useEffect(() => {
+        if (!pos) return;
+        window.addEventListener("scroll", hideTooltip, true);
+        return () => window.removeEventListener("scroll", hideTooltip, true);
+    }, [pos]);
+
     return (
-        <span className="group relative inline-flex">
+        <span ref={wrapperRef} className="relative inline-flex" onMouseEnter={showTooltip} onMouseLeave={hideTooltip}>
             <button
                 type="button"
                 onClick={onClick}
@@ -73,20 +89,26 @@ export function ActionBtn({ icon, label, onClick, disabled, variant = "default",
             >
                 <Icon name={icon} />
             </button>
-            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[200px] px-2.5 py-1.5 border border-ink-600 bg-ink-900 text-[11px] leading-snug text-ink-100 text-center normal-case tracking-normal opacity-0 group-hover:opacity-100 transition z-30 whitespace-normal">
-                {tooltip}
-            </span>
+            {pos && createPortal(
+                <span
+                    className="pointer-events-none fixed w-max max-w-[200px] px-2.5 py-1.5 border border-ink-600 bg-ink-900 text-[11px] leading-snug text-ink-100 text-center normal-case tracking-normal z-[100] whitespace-normal"
+                    style={{ top: pos.top, left: pos.left, transform: "translate(-50%, -100%)" }}
+                >
+                    {tooltip}
+                </span>,
+                document.body
+            )}
         </span>
     );
 }
 
-export function Section({ title, subtitle, badge, count, headerAction, children }: {
-    title: string; subtitle: string; badge: string; count: number; headerAction?: ReactNode; children: ReactNode;
+export function Section({ title, subtitle, badge, count, headerAction, children, className = "" }: {
+    title: string; subtitle: string; badge: string; count: number; headerAction?: ReactNode; children: ReactNode; className?: string;
 }) {
     const [collapsed, setCollapsed] = useState(false);
     return (
-        <section className="border border-ink-700 bg-ink-800/40 fade d2">
-            <header className="flex items-center justify-between px-5 py-4 border-b border-ink-700">
+        <section className={`border border-ink-700 bg-ink-800/40 fade d2 flex flex-col ${collapsed ? "flex-none" : className}`}>
+            <header className="flex items-center justify-between px-5 py-4 border-b border-ink-700 shrink-0">
                 <div className="flex items-start gap-4">
                     <button type="button" onClick={() => setCollapsed(c => !c)} className="text-ink-500 hover:text-ink-100 mt-1">
                         <Icon name="chev" className={`w-3 h-3 transition-transform ${collapsed ? "" : "rotate-90"}`} />
@@ -104,7 +126,11 @@ export function Section({ title, subtitle, badge, count, headerAction, children 
                 </div>
                 {headerAction}
             </header>
-            {!collapsed && children}
+            {!collapsed && (
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar">
+                    {children}
+                </div>
+            )}
         </section>
     );
 }
@@ -134,7 +160,7 @@ export function EmptyState({ title, message }: { title: string; message: ReactNo
 
 export function ErrorBanner({ message }: { message: string }) {
     return (
-        <div className="px-5 py-3 border-b border-ink-700 bg-rose-500/5 text-[12px] font-mono text-rose-300">
+        <div className="shrink-0 px-5 py-3 border-b border-ink-700 bg-rose-500/5 text-[12px] font-mono text-rose-300">
             {message}
         </div>
     );
@@ -142,6 +168,7 @@ export function ErrorBanner({ message }: { message: string }) {
 
 export function Toolbar({
     search, onSearchChange, onRefresh, refreshing,
+    searchPlaceholder = "Search name or image…",
     primaryLabel, onPrimary, primaryDisabled,
     secondaryLabel, onSecondary, secondaryDisabled,
 }: {
@@ -149,6 +176,7 @@ export function Toolbar({
     onSearchChange: (v: string) => void;
     onRefresh: () => void;
     refreshing: boolean;
+    searchPlaceholder?: string;
     primaryLabel?: string;
     onPrimary?: () => void;
     primaryDisabled?: boolean;
@@ -157,13 +185,13 @@ export function Toolbar({
     secondaryDisabled?: boolean;
 }) {
     return (
-        <div className="flex flex-wrap items-center gap-3 fade d1">
+        <div className="shrink-0 flex flex-wrap items-center gap-3 fade d1">
             <div className="flex items-center border border-ink-700 bg-ink-900/60 focus-within:border-accent">
                 <span className="grid place-items-center px-3 text-ink-500"><Icon name="search" /></span>
                 <input
                     value={search}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value)}
-                    placeholder="search name or image…"
+                    placeholder={searchPlaceholder}
                     className="bg-transparent border-0 text-ink-50 font-mono text-[12px] py-2 pr-3 w-56 placeholder:text-ink-600"
                 />
             </div>
@@ -208,7 +236,6 @@ export function ConfirmDialog({ open, title, body, confirmLabel, danger, busy, o
     return (
         <div className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/60">
             <div className="w-full max-w-[440px] bg-ink-800 border border-ink-700 shadow-card">
-                <div className="px-5 py-4 border-b border-ink-700 font-mono text-[11px] text-ink-500">confirm</div>
                 <div className="p-6">
                     <h3 className="font-sans text-[18px] tracking-tight text-ink-50">{title}</h3>
                     <p className="text-[12px] text-ink-400 leading-relaxed mt-2">{body}</p>

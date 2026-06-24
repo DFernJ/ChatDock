@@ -147,9 +147,10 @@ export default function ContainerDetailsDrawer({ container, canMutate, onClose }
 
                 {tab === "stats" && (
                     <div className="flex-1 overflow-y-auto scrollbar p-6 space-y-6">
-                        {!isRunning ? (
+                        {!isRunning && (
                             <p className="text-[12px] text-ink-500 font-mono">The container isn't running — no live stats available.</p>
-                        ) : (
+                        )}
+                        {isRunning && (
                             <>
                                 <div className="grid grid-cols-3 gap-3">
                                     <Metric label="CPU" value={latest ? `${Math.round(latest.cpu)}%` : "—"} />
@@ -192,6 +193,37 @@ export default function ContainerDetailsDrawer({ container, canMutate, onClose }
                                 {statsError && <p className="text-[12px] text-rose-400 font-mono">{statsError}</p>}
                             </>
                         )}
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="border border-ink-700 bg-ink-900/40">
+                                <div className="px-4 py-2.5 border-b border-ink-700 text-[10px] tracking-[0.22em] uppercase text-ink-500">
+                                    Networks
+                                </div>
+                                <div className="p-4 flex flex-col gap-1.5">
+                                    {container.networks.length === 0 ? (
+                                        <span className="text-[12px] text-ink-500 font-mono">No networks attached.</span>
+                                    ) : (
+                                        container.networks.map(n => (
+                                            <span key={n} className="font-mono text-[12px] text-ink-200 truncate">{n}</span>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                            <div className="border border-ink-700 bg-ink-900/40">
+                                <div className="px-4 py-2.5 border-b border-ink-700 text-[10px] tracking-[0.22em] uppercase text-ink-500">
+                                    Volumes
+                                </div>
+                                <div className="p-4 flex flex-col gap-1.5">
+                                    {container.mounts.length === 0 ? (
+                                        <span className="text-[12px] text-ink-500 font-mono">No mounted volumes.</span>
+                                    ) : (
+                                        container.mounts.map((m, i) => (
+                                            <span key={i} className="font-mono text-[12px] text-ink-200 truncate">{m}</span>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

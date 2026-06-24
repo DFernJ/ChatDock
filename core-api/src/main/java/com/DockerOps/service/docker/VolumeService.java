@@ -24,7 +24,7 @@ public class VolumeService {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
         List<VolumeDTO> response = new ArrayList<>();
         for (InspectVolumeResponse volume : volumes) {
-            response.add(new VolumeDTO(volume.getName(), volume.getDriver(), countUsedInContainers(volume.getName(), containers), formatMountPoints(containers)));
+            response.add(new VolumeDTO(volume.getName(), volume.getDriver(), countUsedInContainers(volume.getName(), containers), formatMountPoints(volume.getName(), containers)));
         }
         return response;
     }
@@ -35,7 +35,7 @@ public class VolumeService {
                 .withShowAll(true)
                 .withVolumeFilter(List.of(name))
                 .exec();
-        return new VolumeDTO(volume.getName(), volume.getDriver(), containers.size(), formatMountPoints(containers));
+        return new VolumeDTO(volume.getName(), volume.getDriver(), containers.size(), formatMountPoints(name, containers));
     }
 
     public VolumeDTO createVolume(String name, String driver) {
@@ -67,18 +67,22 @@ public class VolumeService {
         return count;
     }
 
-    private List<MinifiedContainerMountsDTO> formatMountPoints(List<Container> containers) {
+    private List<MinifiedContainerMountsDTO> formatMountPoints(String volumeName, List<Container> containers) {
         List<MinifiedContainerMountsDTO> mountPoints = new ArrayList<>();
         for (Container container : containers) {
-            mountPoints.add(new MinifiedContainerMountsDTO(container.getNames()[0].replace("/", ""), formatMounts(container.getMounts().toArray(new ContainerMount[0]))));
+            List<String> mounts = formatMounts(volumeName, container.getMounts().toArray(new ContainerMount[0]));
+            if (!mounts.isEmpty()) {
+                mountPoints.add(new MinifiedContainerMountsDTO(container.getNames()[0].replace("/", ""), mounts));
+            }
         }
         return mountPoints;
     }
 
-    private List<String> formatMounts(ContainerMount[] mounts) {
+    private List<String> formatMounts(String volumeName, ContainerMount[] mounts) {
         List<String> responseMounts = new ArrayList<>();
         if (mounts != null) {
             for (ContainerMount m : mounts) {
+                if (!volumeName.equals(m.getName())) continue;
                 String formatted = String.format("mode:%s - %s:%s", m.getMode(), m.getSource(), m.getDestination());
                 if (!responseMounts.contains(formatted)) {
                     responseMounts.add(formatted);

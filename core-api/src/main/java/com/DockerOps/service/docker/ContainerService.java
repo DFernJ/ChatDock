@@ -38,6 +38,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -68,14 +69,21 @@ public class ContainerService {
 
     public List<ContainerStatsDTO> listStats() {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
-        List<ContainerStatsDTO> statsResponse = new ArrayList<>();
+        List<CompletableFuture<ContainerStatsDTO>> futures = new ArrayList<>();
         for (Container c : containers) {
             if (!"running".equalsIgnoreCase(c.getState())) continue;
-            try {
-                statsResponse.add(getStats(c.getId()));
-            } catch (RuntimeException e) {
-                // container may have stopped between the list and the stats call — skip it
-            }
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    return getStats(c.getId());
+                } catch (RuntimeException e) {
+                    return null;
+                }
+            }));
+        }
+        List<ContainerStatsDTO> statsResponse = new ArrayList<>();
+        for (CompletableFuture<ContainerStatsDTO> future : futures) {
+            ContainerStatsDTO stats = future.join();
+            if (stats != null) statsResponse.add(stats);
         }
         return statsResponse;
     }
@@ -434,13 +442,6 @@ public class ContainerService {
         }
     }
 
-    /**
-     * Docker doesn't support hot-adding a volume to a running container — the only way is to
-     * recreate it with the desired binds. Named-volume mounts come from the request; existing
-     * host bind mounts (e.g. the docker socket) are preserved as-is. Everything else on the
-     * container (image, cmd, env, ports, labels, the rest of the host config) is carried over
-     * unchanged from the original container.
-     */
     private String recreateWithVolumes(InspectContainerResponse inspect, UpdateContainerRequest req, RestartPolicy restartPolicy) {
         String originalId = inspect.getId();
         String originalName = inspect.getName().replace("/", "");

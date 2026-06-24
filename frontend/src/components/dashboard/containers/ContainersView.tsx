@@ -264,7 +264,8 @@ export default function ContainersView() {
     const [assigning, setAssigning] = useState<ContainerDTO | null>(null);
     const [editingStack, setEditingStack] = useState<StackDTO | null>(null);
     const [addingToStack, setAddingToStack] = useState<StackDTO | null>(null);
-    const [viewingDetails, setViewingDetails] = useState<ContainerDTO | null>(null);
+    const [viewingDetailsId, setViewingDetailsId] = useState<string | null>(null);
+    const viewingDetails = viewingDetailsId ? containers.find(c => c.id === viewingDetailsId) ?? null : null;
 
     const refresh = useCallback(async () => {
         setError(null);
@@ -342,7 +343,7 @@ export default function ContainersView() {
     const copy = pending ? ACTION_COPY[pending.action] : null;
 
     return (
-        <div className="space-y-6">
+        <div className="h-full flex flex-col gap-6 min-h-0">
             <Toolbar
                 search={search}
                 onSearchChange={setSearch}
@@ -359,6 +360,7 @@ export default function ContainersView() {
                 subtitle="Containers required for ChatOps to function. Cannot be deleted from the UI."
                 badge="locked"
                 count={essentials.length}
+                className="flex-1 min-h-0"
             >
                 {loading && containers.length === 0 ? (
                     <div className="px-5 py-10 text-center font-mono text-[12px] text-ink-500">loading…</div>
@@ -375,7 +377,7 @@ export default function ContainersView() {
                             onAction={(container, action) => setPending({ container, action })}
                             onEdit={setEditing}
                             onAssign={setAssigning}
-                            onViewDetails={setViewingDetails}
+                            onViewDetails={c => setViewingDetailsId(c.id)}
                             onDownloadLogs={handleDownloadLogs}
                         />
                     ))
@@ -387,6 +389,7 @@ export default function ContainersView() {
                 subtitle="Apps grouped into persisted stacks."
                 badge="persisted"
                 count={stackGroups.length}
+                className="flex-1 min-h-0"
                 headerAction={
                     <button
                         type="button"
@@ -417,7 +420,7 @@ export default function ContainersView() {
                             onAssign={setAssigning}
                             onAddContainer={setAddingToStack}
                             onEditStack={setEditingStack}
-                            onViewDetails={setViewingDetails}
+                            onViewDetails={c => setViewingDetailsId(c.id)}
                             onDownloadLogs={handleDownloadLogs}
                         />
                     ))
@@ -429,6 +432,7 @@ export default function ContainersView() {
                 subtitle="Containers running on this node that aren't part of any stack."
                 badge="host"
                 count={deployedAtHost.length}
+                className="flex-1 min-h-0"
             >
                 {loading && containers.length === 0 ? (
                     <div className="px-5 py-10 text-center font-mono text-[12px] text-ink-500">loading…</div>
@@ -445,7 +449,7 @@ export default function ContainersView() {
                             onAction={(container, action) => setPending({ container, action })}
                             onEdit={setEditing}
                             onAssign={setAssigning}
-                            onViewDetails={setViewingDetails}
+                            onViewDetails={c => setViewingDetailsId(c.id)}
                             onDownloadLogs={handleDownloadLogs}
                         />
                     ))
@@ -509,7 +513,7 @@ export default function ContainersView() {
                 <ContainerDetailsDrawer
                     container={viewingDetails}
                     canMutate={canMutate}
-                    onClose={() => setViewingDetails(null)}
+                    onClose={() => setViewingDetailsId(null)}
                 />
             )}
         </div>
