@@ -3,6 +3,7 @@ package com.DockerOps.controller;
 import com.DockerOps.dto.container.ContainerConfigDTO;
 import com.DockerOps.dto.container.ContainerDTO;
 import com.DockerOps.dto.container.ContainerStatsDTO;
+import com.DockerOps.dto.image.DockerHubImageDTO;
 import com.DockerOps.dto.image.ImageDTO;
 import com.DockerOps.dto.network.NetworkDTO;
 import com.DockerOps.dto.request.AssignContainerRequest;
@@ -217,6 +218,12 @@ public class DockerController {
     @GetMapping("/images")
     public List<ImageDTO> getImages() {
         return imageService.listImages();
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping("/images/search")
+    public List<DockerHubImageDTO> searchDockerHubImages(@RequestParam String query) {
+        return imageService.searchDockerHub(query);
     }
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")

@@ -85,6 +85,14 @@ export interface ImageDTO {
     usedInContainers: number;
 }
 
+export interface DockerHubImageDTO {
+    name: string;
+    description: string;
+    official: boolean;
+    automated: boolean;
+    starCount: number;
+}
+
 export interface VolumeDTO {
     name: string;
     driver: string;

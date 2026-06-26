@@ -1,20 +1,29 @@
 package com.DockerOps.service.docker;
 
+import com.DockerOps.dto.image.DockerHubImageDTO;
+import com.DockerOps.dto.image.DockerHubSearchResponseDTO;
 import com.DockerOps.dto.image.ImageDTO;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.api.model.PruneResponse;
 import com.github.dockerjava.api.model.PruneType;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 public class ImageService {
+
+    private static final RestClient DOCKER_HUB_CLIENT = RestClient.create("https://hub.docker.com");
 
     @Autowired
     private DockerClient dockerClient;
@@ -56,6 +65,27 @@ public class ImageService {
 
     public int countImages() {
         return dockerClient.listImagesCmd().withShowAll(true).exec().size();
+    }
+
+    public List<DockerHubImageDTO> searchDockerHub(String query) {
+        if (query == null || query.isBlank()) return Collections.emptyList();
+        try {
+            DockerHubSearchResponseDTO response = DOCKER_HUB_CLIENT.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v2/search/repositories/")
+                            .queryParam("query", query)
+                            .queryParam("page_size", 25)
+                            .build())
+                    .retrieve()
+                    .body(DockerHubSearchResponseDTO.class);
+            if (response == null || response.results() == null) return Collections.emptyList();
+            return response.results().stream()
+                    .map(r -> new DockerHubImageDTO(r.repoName(), r.shortDescription(), r.official(), r.automated(), r.starCount()))
+                    .toList();
+        } catch (RestClientException e) {
+            log.warn("Docker Hub search failed for query '{}'", query, e);
+            return Collections.emptyList();
+        }
     }
 
     private ImageDTO formatImage(String id, String[] repoTags, Long size, Integer containers) {

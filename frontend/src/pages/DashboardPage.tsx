@@ -4,6 +4,7 @@ import type { DashboardView } from "../components/Topbar.tsx";
 import ContainersView from "../components/dashboard/containers/ContainersView.tsx";
 import VolumesView from "../components/dashboard/volumes/VolumesView.tsx";
 import NetworksView from "../components/dashboard/networks/NetworksView.tsx";
+import ImagesView from "../components/dashboard/images/ImagesView.tsx";
 
 const VIEW_TITLE: Record<DashboardView, string> = {
     containers: "Containers",
@@ -29,9 +30,7 @@ export default function DashboardPage() {
                 ) : view === "networks" ? (
                     <NetworksView />
                 ) : (
-                    <div className="px-5 py-10 text-center font-mono text-[12px] text-ink-500 border border-ink-700 bg-ink-800/40">
-                        Coming soon.
-                    </div>
+                    <ImagesView />
                 )}
             </div>
         </main>

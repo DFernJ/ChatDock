@@ -1,4 +1,4 @@
-import { AppSecretDTO, AppSummaryDTO, CountDTO, ContainerConfigDTO, ContainerDTO, ContainerStatsDTO, ImageDTO, NetworkDTO, StackDTO, UpdateContainerRequest, VolumeDTO } from "../../types/docker.ts"
+import { AppSecretDTO, AppSummaryDTO, CountDTO, ContainerConfigDTO, ContainerDTO, ContainerStatsDTO, DockerHubImageDTO, ImageDTO, NetworkDTO, StackDTO, UpdateContainerRequest, VolumeDTO } from "../../types/docker.ts"
 import {ApiError, request, searchParams} from "../api.ts";
 
 const DockerPath: string = "/api/docker"
@@ -151,6 +151,11 @@ export async function downloadContainerLogs(id: string, name: string): Promise<v
 
 export const listImages = () =>
     request<ImageDTO[]>(`${DockerPath}/images`, {
+        method: "GET"
+    });
+
+export const searchDockerHubImages = (query: string) =>
+    request<DockerHubImageDTO[]>(`${DockerPath}/images/search${searchParams({ query })}`, {
         method: "GET"
     });
 
