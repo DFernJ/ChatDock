@@ -4,7 +4,6 @@ import { Topbar } from "./components/Topbar.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import AdminPage from "./pages/AdminPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
-import ImportContainerPage from "./pages/ImportContainerPage.tsx";
 import ProfilePage from "./pages/ProfilePage.tsx";
 import LegalPage from "./pages/LegalPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
@@ -40,7 +39,6 @@ export default function App() {
               <Route element={<AuthedLayout />}>
                   <Route path={"/"} element={<DashboardPage />} />
                   <Route path={"/admin"} element={user?.authRole === "admin" ? <AdminPage /> : <Navigate to="/" replace />} />
-                  <Route path={"/import"} element={<ImportContainerPage />} />
                   <Route path={"/profile"} element={<ProfilePage />} />
               </Route>
           ) : (

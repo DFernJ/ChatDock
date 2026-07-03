@@ -100,6 +100,40 @@ export interface VolumeDTO {
     mountPoints: MinifiedContainerMountsDTO[];
 }
 
+export interface PortMappingRequest {
+    hostPort: number;
+    containerPort: number;
+    protocol: "tcp" | "udp";
+}
+
+export interface HealthcheckRequest {
+    enabled: boolean;
+    command: string;
+    intervalSeconds: number;
+    timeoutSeconds: number;
+    retries: number;
+}
+
+export interface SecretDraftRequest {
+    name: string;
+    value: string;
+}
+
+export interface CreateContainerRequest {
+    image: string;
+    name: string;
+    subdomain: string | null;
+    stdin: boolean;
+    restartPolicyName: string;
+    restartPolicyMaxRetryCount: number | null;
+    networks: string[];
+    volumes: ContainerVolumeDTO[];
+    ports: PortMappingRequest[];
+    healthcheck: HealthcheckRequest | null;
+    secrets: SecretDraftRequest[];
+    stackName: string | null;
+}
+
 export interface NetworkDTO {
     id: string;
     name: string;

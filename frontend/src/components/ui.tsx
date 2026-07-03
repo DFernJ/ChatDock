@@ -225,7 +225,7 @@ export function Toolbar({
 export function ConfirmDialog({ open, title, body, confirmLabel, danger, busy, onCancel, onConfirm }: {
     open: boolean;
     title: string;
-    body: string;
+    body: ReactNode;
     confirmLabel: string;
     danger?: boolean;
     busy?: boolean;

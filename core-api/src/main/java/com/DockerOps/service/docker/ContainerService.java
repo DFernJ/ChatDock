@@ -6,7 +6,11 @@ import com.DockerOps.dto.container.ContainerStatsDTO;
 import com.DockerOps.dto.container.ContainerVolumeDTO;
 import com.DockerOps.dto.request.AssignContainerRequest;
 import com.DockerOps.dto.request.CreateAppSecretRequest;
+import com.DockerOps.dto.request.CreateContainerRequest;
 import com.DockerOps.dto.request.CreateStackRequest;
+import com.DockerOps.dto.request.PortMappingDTO;
+import com.DockerOps.dto.request.HealthcheckDTO;
+import com.DockerOps.dto.request.SecretDraftDTO;
 import com.DockerOps.dto.request.UpdateAppSecretRequest;
 import com.DockerOps.dto.request.UpdateContainerRequest;
 import com.DockerOps.dto.response.AppSecretResponse;
@@ -24,6 +28,7 @@ import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,18 +39,25 @@ import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 @Service
 public class ContainerService {
 
     private static final String ESSENTIAL_CONTAINER_PREFIX = "essential-";
+    private static final String SUBDOMAIN_LABEL = "chatops.subdomain";
+    private static final String STDIN_LABEL = "chatops.stdin";
+    private static final Pattern SUBDOMAIN_PATTERN = Pattern.compile("^[A-Za-z0-9-]+$");
+    private static final Set<String> RESERVED_SUBDOMAINS = Set.of("www", "api", "admin", "mail", "ftp", "root", "localhost");
 
     @Autowired
     private DockerClient dockerClient;
@@ -57,6 +69,8 @@ public class ContainerService {
     private AppStackRepository appStackRepository;
     @Autowired
     private NetworkService networkService;
+    @Autowired
+    private ImageService imageService;
 
     public List<ContainerDTO> listContainers() {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
@@ -202,6 +216,111 @@ public class ContainerService {
                 networks,
                 namedVolumeMounts(inspect)
         );
+    }
+
+    public ContainerDTO createContainer(CreateContainerRequest req, User owner) {
+        if (req.image() == null || req.image().isBlank()) {
+            throw new IllegalArgumentException("Image is required");
+        }
+        if (req.name() == null || req.name().isBlank()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        String resolvedStackName = req.stackName() != null && !req.stackName().isBlank() ? req.stackName().trim() : null;
+        if (resolvedStackName == null && req.secrets() != null && !req.secrets().isEmpty()) {
+            throw new IllegalArgumentException("Assign the container to a stack to add secrets");
+        }
+        String subdomain = req.subdomain() != null && !req.subdomain().isBlank() ? req.subdomain().trim() : null;
+        if (subdomain != null) {
+            validateSubdomain(subdomain);
+        }
+
+        ensureImagePulled(req.image());
+
+        List<Bind> binds = new ArrayList<>();
+        if (req.volumes() != null) {
+            for (ContainerVolumeDTO v : req.volumes()) {
+                if (v.volumeName() == null || v.volumeName().isBlank() || v.target() == null || v.target().isBlank()) continue;
+                binds.add(new Bind(v.volumeName(), new Volume(v.target()), v.readOnly() ? AccessMode.ro : AccessMode.rw));
+            }
+        }
+
+        List<ExposedPort> exposedPorts = new ArrayList<>();
+        List<PortBinding> portBindings = new ArrayList<>();
+        if (req.ports() != null) {
+            for (PortMappingDTO p : req.ports()) {
+                if (p.hostPort() == null || p.containerPort() == null) continue;
+                ExposedPort exposedPort = "udp".equalsIgnoreCase(p.protocol())
+                        ? ExposedPort.udp(p.containerPort())
+                        : ExposedPort.tcp(p.containerPort());
+                exposedPorts.add(exposedPort);
+                portBindings.add(new PortBinding(Ports.Binding.bindPort(p.hostPort()), exposedPort));
+            }
+        }
+
+        HostConfig hostConfig = HostConfig.newHostConfig()
+                .withBinds(binds)
+                .withPortBindings(new Ports(portBindings.toArray(new PortBinding[0])))
+                .withSecurityOpts(List.of("no-new-privileges"));
+        if (req.restartPolicyName() != null && !req.restartPolicyName().isBlank()) {
+            hostConfig.withRestartPolicy(buildRestartPolicy(req.restartPolicyName(), req.restartPolicyMaxRetryCount()));
+        }
+
+        CreateContainerCmd createCmd = dockerClient.createContainerCmd(req.image())
+                .withName(req.name().trim())
+                .withHostConfig(hostConfig)
+                .withExposedPorts(exposedPorts)
+                .withStdinOpen(req.stdin());
+
+        Map<String, String> labels = new HashMap<>();
+        labels.put(STDIN_LABEL, req.stdin() ? "on" : "off");
+        if (subdomain != null) {
+            labels.put(SUBDOMAIN_LABEL, subdomain);
+        }
+        createCmd = createCmd.withLabels(labels);
+
+        if (req.secrets() != null && !req.secrets().isEmpty()) {
+            List<String> env = req.secrets().stream()
+                    .filter(s -> s.name() != null && !s.name().isBlank())
+                    .map(s -> s.name().trim() + "=" + (s.value() != null ? s.value() : ""))
+                    .toList();
+            createCmd = createCmd.withEnv(env);
+        }
+
+        HealthcheckDTO hc = req.healthcheck();
+        if (hc != null && hc.enabled() && hc.command() != null && !hc.command().isBlank()) {
+            HealthCheck healthCheck = new HealthCheck()
+                    .withTest(List.of("CMD-SHELL", hc.command()))
+                    .withInterval(secondsToNanos(hc.intervalSeconds()))
+                    .withTimeout(secondsToNanos(hc.timeoutSeconds()))
+                    .withRetries(hc.retries() != null ? hc.retries() : 0);
+            createCmd = createCmd.withHealthcheck(healthCheck);
+        }
+
+        CreateContainerResponse created = createCmd.exec();
+        String containerId = created.getId();
+
+        if (req.networks() != null) {
+            for (String network : req.networks()) {
+                networkService.connectContainer(network, containerId);
+            }
+        }
+
+        dockerClient.startContainerCmd(containerId).exec();
+
+        if (resolvedStackName != null) {
+            assignContainer(containerId, new AssignContainerRequest(req.name().trim(), resolvedStackName), owner);
+            if (req.secrets() != null) {
+                for (SecretDraftDTO secret : req.secrets()) {
+                    if (secret.name() == null || secret.name().isBlank()) continue;
+                    createSecret(containerId, new CreateAppSecretRequest(secret.name().trim(), secret.value()));
+                }
+            }
+        }
+
+        return listContainers().stream()
+                .filter(c -> c.id().equals(containerId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Container not found after creation"));
     }
 
     public ContainerDTO updateContainer(String id, UpdateContainerRequest req) {
@@ -416,6 +535,41 @@ public class ContainerService {
             requested.add(v.volumeName() + "->" + v.target());
         }
         return !current.equals(requested);
+    }
+
+    private void validateSubdomain(String subdomain) {
+        if (!SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
+            throw new IllegalArgumentException("Subdomain can only contain letters, numbers and hyphens");
+        }
+        if (RESERVED_SUBDOMAINS.contains(subdomain.toLowerCase())) {
+            throw new IllegalArgumentException("'" + subdomain + "' is a reserved subdomain");
+        }
+        List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
+        for (Container c : containers) {
+            Map<String, String> labels = c.getLabels();
+            if (labels != null && subdomain.equalsIgnoreCase(labels.get(SUBDOMAIN_LABEL))) {
+                throw new IllegalArgumentException("Subdomain '" + subdomain + "' is already in use by another container");
+            }
+        }
+    }
+
+    private void ensureImagePulled(String image) {
+        try {
+            dockerClient.inspectImageCmd(image).exec();
+        } catch (NotFoundException e) {
+            String repository = image;
+            String tag = "latest";
+            int idx = image.lastIndexOf(':');
+            if (idx > image.lastIndexOf('/')) {
+                repository = image.substring(0, idx);
+                tag = image.substring(idx + 1);
+            }
+            imageService.pullImage(repository, tag);
+        }
+    }
+
+    private long secondsToNanos(Integer seconds) {
+        return (seconds != null ? seconds : 0) * 1_000_000_000L;
     }
 
     private RestartPolicy buildRestartPolicy(String name, Integer maxRetryCount) {

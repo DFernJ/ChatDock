@@ -37,6 +37,7 @@ app:
   github:
     client-id: ${GITHUB_APP_CLIENT_ID}
     client-secret: ${GITHUB_APP_CLIENT_SECRET}
+    app-slug: ${GITHUB_APP_SLUG}
   cloudflare:
     api-token: ${CLOUDFLARE_API_TOKEN}
     zone-id: ${CLOUDFLARE_ZONE_ID}

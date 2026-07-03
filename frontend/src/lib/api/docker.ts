@@ -1,4 +1,4 @@
-import { AppSecretDTO, AppSummaryDTO, CountDTO, ContainerConfigDTO, ContainerDTO, ContainerStatsDTO, DockerHubImageDTO, ImageDTO, NetworkDTO, StackDTO, UpdateContainerRequest, VolumeDTO } from "../../types/docker.ts"
+import { AppSecretDTO, AppSummaryDTO, CountDTO, ContainerConfigDTO, ContainerDTO, ContainerStatsDTO, CreateContainerRequest, DockerHubImageDTO, ImageDTO, NetworkDTO, StackDTO, UpdateContainerRequest, VolumeDTO } from "../../types/docker.ts"
 import {ApiError, request, searchParams} from "../api.ts";
 
 const DockerPath: string = "/api/docker"
@@ -11,6 +11,13 @@ export const getCounts = () =>
 export const listContainers = () =>
     request<ContainerDTO[]>(`${DockerPath}/containers`, {
         method: "GET"
+    });
+
+export const createContainer = (body: CreateContainerRequest) =>
+    request<ContainerDTO>(`${DockerPath}/containers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
     });
 
 export const getContainersStats = () =>

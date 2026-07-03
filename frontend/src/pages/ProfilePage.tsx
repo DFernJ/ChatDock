@@ -425,7 +425,21 @@ export default function ProfilePage() {
             <ConfirmDialog
                 open={pendingUnlinkGithub}
                 title="Unlink GitHub"
-                body="You will need to link your GitHub account again to import or deploy repositories from it."
+                body={
+                    <>
+                        You will need to link your GitHub account again to import or deploy repositories from it. This
+                        only revokes ChatOps's access token — the GitHub App installation and its repository access
+                        stay in place. To remove those too, uninstall the app from{" "}
+                        <a
+                            href="https://github.com/settings/installations"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-accent hover:underline"
+                        >
+                            github.com/settings/installations
+                        </a>.
+                    </>
+                }
                 confirmLabel="Unlink"
                 danger
                 busy={githubBusy}

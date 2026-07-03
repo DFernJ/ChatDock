@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Frame;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -26,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class ContainerConsoleWebSocketHandler extends TextWebSocketHandler {
 
+    private static final String STDIN_LABEL = "chatops.stdin";
+
     private record ConsoleSession(PipedOutputStream stdin) {}
 
     @Autowired
@@ -44,6 +47,23 @@ public class ContainerConsoleWebSocketHandler extends TextWebSocketHandler {
         }
 
         String containerId = extractContainerId(session);
+
+        InspectContainerResponse inspect;
+        try {
+            inspect = dockerClient.inspectContainerCmd(containerId).exec();
+        } catch (RuntimeException e) {
+            sendQuietly(session, "Could not inspect the container: " + e.getMessage() + "\r\n");
+            closeQuietly(session);
+            return;
+        }
+        Map<String, String> labels = inspect.getConfig().getLabels();
+        String stdinLabel = labels != null ? labels.get(STDIN_LABEL) : null;
+        if (!"on".equalsIgnoreCase(stdinLabel)) {
+            sendQuietly(session, "This container was created with STDIN closed — the console can't send input.\r\n");
+            closeQuietly(session);
+            return;
+        }
+
         PipedOutputStream stdinOut = new PipedOutputStream();
         PipedInputStream stdinIn = new PipedInputStream(stdinOut, 4096);
         sessions.put(session.getId(), new ConsoleSession(stdinOut));

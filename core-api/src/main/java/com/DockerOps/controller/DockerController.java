@@ -8,6 +8,7 @@ import com.DockerOps.dto.image.ImageDTO;
 import com.DockerOps.dto.network.NetworkDTO;
 import com.DockerOps.dto.request.AssignContainerRequest;
 import com.DockerOps.dto.request.CreateAppSecretRequest;
+import com.DockerOps.dto.request.CreateContainerRequest;
 import com.DockerOps.dto.request.CreateStackRequest;
 import com.DockerOps.dto.request.UpdateAppSecretRequest;
 import com.DockerOps.dto.request.UpdateContainerRequest;
@@ -61,6 +62,12 @@ public class DockerController {
     @GetMapping("/containers")
     public List<ContainerDTO> getContainers() {
         return containerService.listContainers();
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @PostMapping("/containers")
+    public ContainerDTO createContainer(@RequestBody CreateContainerRequest request, Authentication authentication) {
+        return containerService.createContainer(request, currentUser(authentication));
     }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")

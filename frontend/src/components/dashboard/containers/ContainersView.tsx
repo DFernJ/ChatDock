@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext.tsx";
 import { canDelete, canEdit } from "../../../lib/permissions.ts";
 import { ApiError } from "../../../lib/api.ts";
@@ -30,6 +29,7 @@ import EditStackModal from "./EditStackModal.tsx";
 import AssignStackModal from "./AssignStackModal.tsx";
 import AddContainerToStackModal from "./AddContainerToStackModal.tsx";
 import ContainerDetailsDrawer from "./ContainerDetailsDrawer.tsx";
+import ImportContainerModal from "./ImportContainerModal.tsx";
 
 type LifecycleAction = "start" | "stop" | "restart" | "delete";
 
@@ -247,7 +247,6 @@ function StackGroup({ stack, items, stats, canMutate, canRemove, onAction, onEdi
 
 export default function ContainersView() {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const canMutate = canEdit(user?.permissionRole);
     const canRemove = canDelete(user?.permissionRole);
 
@@ -265,6 +264,7 @@ export default function ContainersView() {
     const [editingStack, setEditingStack] = useState<StackDTO | null>(null);
     const [addingToStack, setAddingToStack] = useState<StackDTO | null>(null);
     const [viewingDetailsId, setViewingDetailsId] = useState<string | null>(null);
+    const [showImport, setShowImport] = useState(false);
     const viewingDetails = viewingDetailsId ? containers.find(c => c.id === viewingDetailsId) ?? null : null;
 
     const refresh = useCallback(async () => {
@@ -350,7 +350,7 @@ export default function ContainersView() {
                 onRefresh={refresh}
                 refreshing={loading}
                 primaryLabel="Import container"
-                onPrimary={() => navigate("/import")}
+                onPrimary={() => setShowImport(true)}
             />
 
             {error && <ErrorBanner message={error} />}
@@ -515,6 +515,10 @@ export default function ContainersView() {
                     canMutate={canMutate}
                     onClose={() => setViewingDetailsId(null)}
                 />
+            )}
+
+            {showImport && (
+                <ImportContainerModal onClose={() => setShowImport(false)} onCreated={refresh} />
             )}
         </div>
     );

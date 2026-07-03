@@ -194,7 +194,36 @@ export default function ContainerDetailsDrawer({ container, canMutate, onClose }
                             </>
                         )}
 
+                        <div className="border border-ink-700 bg-ink-900/40">
+                            <div className="px-4 py-2.5 border-b border-ink-700 text-[10px] tracking-[0.22em] uppercase text-ink-500">
+                                Volumes
+                            </div>
+                            <div className="p-4 flex flex-col gap-1.5">
+                                {container.mounts.length === 0 ? (
+                                    <span className="text-[12px] text-ink-500 font-mono">No mounted volumes.</span>
+                                ) : (
+                                    container.mounts.map((m, i) => (
+                                        <span key={i} className="font-mono text-[12px] text-ink-200 truncate">{m}</span>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
+                            <div className="border border-ink-700 bg-ink-900/40">
+                                <div className="px-4 py-2.5 border-b border-ink-700 text-[10px] tracking-[0.22em] uppercase text-ink-500">
+                                    Ports
+                                </div>
+                                <div className="p-4 flex flex-col gap-1.5">
+                                    {container.ports.length === 0 ? (
+                                        <span className="text-[12px] text-ink-500 font-mono">No published ports.</span>
+                                    ) : (
+                                        container.ports.map((p, i) => (
+                                            <span key={i} className="font-mono text-[12px] text-ink-200 truncate">{p}</span>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
                             <div className="border border-ink-700 bg-ink-900/40">
                                 <div className="px-4 py-2.5 border-b border-ink-700 text-[10px] tracking-[0.22em] uppercase text-ink-500">
                                     Networks
@@ -205,20 +234,6 @@ export default function ContainerDetailsDrawer({ container, canMutate, onClose }
                                     ) : (
                                         container.networks.map(n => (
                                             <span key={n} className="font-mono text-[12px] text-ink-200 truncate">{n}</span>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                            <div className="border border-ink-700 bg-ink-900/40">
-                                <div className="px-4 py-2.5 border-b border-ink-700 text-[10px] tracking-[0.22em] uppercase text-ink-500">
-                                    Volumes
-                                </div>
-                                <div className="p-4 flex flex-col gap-1.5">
-                                    {container.mounts.length === 0 ? (
-                                        <span className="text-[12px] text-ink-500 font-mono">No mounted volumes.</span>
-                                    ) : (
-                                        container.mounts.map((m, i) => (
-                                            <span key={i} className="font-mono text-[12px] text-ink-200 truncate">{m}</span>
                                         ))
                                     )}
                                 </div>
