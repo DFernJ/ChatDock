@@ -1,6 +1,8 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.tsx";
+import { NotificationsProvider, useNotifications } from "./context/NotificationsContext.tsx";
 import { Topbar } from "./components/Topbar.tsx";
+import { ToastStack } from "./components/Ui.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import AdminPage from "./pages/AdminPage.tsx";
 import DashboardPage from "./pages/DashboardPage.tsx";
@@ -10,12 +12,20 @@ import TermsPage from "./pages/TermsPage.tsx";
 
 const PUBLIC_PATHS = ["/legal", "/terms"];
 
+function GlobalToasts() {
+    const { toasts, dismissToast } = useNotifications();
+    return <ToastStack toasts={toasts} onDismiss={dismissToast} />;
+}
+
 function AuthedLayout() {
     return (
-        <div className="relative min-h-screen w-full bg-stage bg-grid overflow-hidden">
-            <Topbar variant="auth" />
-            <Outlet />
-        </div>
+        <NotificationsProvider>
+            <div className="relative min-h-screen w-full bg-stage bg-grid overflow-hidden">
+                <Topbar variant="auth" />
+                <GlobalToasts />
+                <Outlet />
+            </div>
+        </NotificationsProvider>
     );
 }
 

@@ -26,11 +26,14 @@ public class App extends Auditable {
     @Column(nullable = false, name = "container_name", unique = true)
     private String containerName;
 
-    @Column(nullable = true, name = "last_ai_diagnosis")
+    @Column(nullable = true, name = "last_ai_diagnosis", columnDefinition = "TEXT")
     private String lastAIDiagnosis;
 
     @Column(nullable = true, name = "last_ai_diagnosis_timestamp")
     private Instant lastAIDiagnosisTimestamp;
+
+    @Column(nullable = true, name = "last_ai_diagnosis_finished_at")
+    private Instant lastAIDiagnosisFinishedAt;
 
     @OneToMany(mappedBy = "app", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AppSecret> secrets;

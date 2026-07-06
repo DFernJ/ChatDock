@@ -1,4 +1,4 @@
-import { AppSecretDTO, AppSummaryDTO, CountDTO, ContainerConfigDTO, ContainerDTO, ContainerStatsDTO, CreateContainerRequest, DockerHubImageDTO, ImageDTO, NetworkDTO, StackDTO, UpdateContainerRequest, VolumeDTO } from "../../types/docker.ts"
+import { AiDiagnosisDTO, AppSecretDTO, AppSummaryDTO, CountDTO, ContainerConfigDTO, ContainerDTO, ContainerStatsDTO, CreateContainerRequest, DockerHubImageDTO, ImageDTO, NetworkDTO, StackDTO, UpdateContainerRequest, VolumeDTO } from "../../types/docker.ts"
 import {ApiError, request, searchParams} from "../api.ts";
 
 const DockerPath: string = "/api/docker"
@@ -155,6 +155,11 @@ export async function downloadContainerLogs(id: string, name: string): Promise<v
     a.click();
     URL.revokeObjectURL(url);
 }
+
+export const requestAiDiagnosis = (id: string) =>
+    request<AiDiagnosisDTO>(`${DockerPath}/containers/${id}/ai-diagnosis`, {
+        method: "POST"
+    });
 
 export const listImages = () =>
     request<ImageDTO[]>(`${DockerPath}/images`, {

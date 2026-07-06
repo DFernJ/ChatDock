@@ -16,6 +16,7 @@ export interface ContainerDTO {
     mounts: string[];
     essential: boolean;
     stackName: string | null;
+    failed: boolean;
 }
 
 export interface ContainerVolumeDTO {
@@ -132,6 +133,12 @@ export interface CreateContainerRequest {
     healthcheck: HealthcheckRequest | null;
     secrets: SecretDraftRequest[];
     stackName: string | null;
+}
+
+export interface AiDiagnosisDTO {
+    diagnosis: string;
+    generatedAt: string;
+    cached: boolean;
 }
 
 export interface NetworkDTO {

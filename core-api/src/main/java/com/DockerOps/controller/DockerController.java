@@ -3,6 +3,7 @@ package com.DockerOps.controller;
 import com.DockerOps.dto.container.ContainerConfigDTO;
 import com.DockerOps.dto.container.ContainerDTO;
 import com.DockerOps.dto.container.ContainerStatsDTO;
+import com.DockerOps.dto.response.AiDiagnosisResponse;
 import com.DockerOps.dto.image.DockerHubImageDTO;
 import com.DockerOps.dto.image.ImageDTO;
 import com.DockerOps.dto.network.NetworkDTO;
@@ -19,6 +20,8 @@ import com.DockerOps.dto.response.SecretValueResponse;
 import com.DockerOps.dto.response.StackResponse;
 import com.DockerOps.dto.volume.VolumeDTO;
 import com.DockerOps.model.users.User;
+import com.DockerOps.service.ai.AiDiagnosisService;
+import com.DockerOps.service.docker.ContainerEventPublisher;
 import com.DockerOps.service.docker.ContainerService;
 import com.DockerOps.service.docker.ImageService;
 import com.DockerOps.service.docker.NetworkService;
@@ -31,8 +34,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.ai.retry.NonTransientAiException;
+import org.springframework.ai.retry.TransientAiException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +56,10 @@ public class DockerController {
     private ImageService imageService;
     @Autowired
     private NetworkService networkService;
+    @Autowired
+    private AiDiagnosisService aiDiagnosisService;
+    @Autowired
+    private ContainerEventPublisher containerEventPublisher;
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping("/count")
@@ -68,6 +78,12 @@ public class DockerController {
     @PostMapping("/containers")
     public ContainerDTO createContainer(@RequestBody CreateContainerRequest request, Authentication authentication) {
         return containerService.createContainer(request, currentUser(authentication));
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping(path = "/containers/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamContainerEvents() {
+        return containerEventPublisher.subscribe();
     }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
@@ -211,6 +227,12 @@ public class DockerController {
                 .body(logs);
     }
 
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @PostMapping("/containers/{containerId}/ai-diagnosis")
+    public AiDiagnosisResponse diagnoseContainer(@PathVariable String containerId) {
+        return aiDiagnosisService.diagnose(containerId);
+    }
+
     @PreAuthorize("hasAuthority('PERM_ROOT')")
     @DeleteMapping("/containers/{containerId}/delete")
     public ResponseEntity<?> deleteContainer(
@@ -351,6 +373,11 @@ public class DockerController {
     @ExceptionHandler(DockerClientException.class)
     public ResponseEntity<String> handleDockerClientException(DockerClientException e) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Docker client error: " + e.getMessage());
+    }
+
+    @ExceptionHandler({NonTransientAiException.class, TransientAiException.class})
+    public ResponseEntity<String> handleAiClientException(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("AI diagnosis failed: " + e.getMessage());
     }
 
 }

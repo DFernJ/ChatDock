@@ -30,6 +30,7 @@ import AssignStackModal from "./AssignStackModal.tsx";
 import AddContainerToStackModal from "./AddContainerToStackModal.tsx";
 import ContainerDetailsDrawer from "./ContainerDetailsDrawer.tsx";
 import ImportContainerModal from "./ImportContainerModal.tsx";
+import AiDiagnosisModal from "./AiDiagnosisModal.tsx";
 
 type LifecycleAction = "start" | "stop" | "restart" | "delete";
 
@@ -71,7 +72,7 @@ const PERMISSION_EDIT_REASON = "You need editor permissions or higher to manage 
 const PERMISSION_DELETE_REASON = "You need root permissions to delete containers.";
 const ESSENTIAL_EDIT_REASON = "Essential containers can't be modified from the UI.";
 
-function ContainerRow({ container, stats, canMutate, canRemove, onAction, onEdit, onAssign, onViewDetails, onDownloadLogs }: {
+function ContainerRow({ container, stats, canMutate, canRemove, onAction, onEdit, onAssign, onViewDetails, onDownloadLogs, onDiagnose }: {
     container: ContainerDTO;
     stats?: ContainerStatsDTO;
     canMutate: boolean;
@@ -81,6 +82,7 @@ function ContainerRow({ container, stats, canMutate, canRemove, onAction, onEdit
     onAssign: (container: ContainerDTO) => void;
     onViewDetails: (container: ContainerDTO) => void;
     onDownloadLogs: (container: ContainerDTO) => void;
+    onDiagnose: (container: ContainerDTO) => void;
 }) {
     const meta = statusMeta(container.state);
     const isRunning = container.state === "running";
@@ -88,6 +90,7 @@ function ContainerRow({ container, stats, canMutate, canRemove, onAction, onEdit
     const canStop = isRunning || isRestarting;
     const cpu = stats ? Math.round(stats.cpuPercent) : 0;
     const mem = stats ? Math.round(stats.memPercent) : 0;
+    const canDiagnose = container.failed;
 
     return (
         <div className="grid grid-cols-[24px_minmax(200px,1.6fr)_110px_140px_140px_auto] items-center gap-4 px-5 py-3.5 border-b border-ink-700/70 hover:bg-ink-800/40 transition">
@@ -153,7 +156,13 @@ function ContainerRow({ container, stats, canMutate, canRemove, onAction, onEdit
                     onClick={() => onAction(container, "restart")}
                 />
                 <ActionBtn icon="download" label="Download logs" onClick={() => onDownloadLogs(container)} />
-                <ActionBtn icon="pulse" label="Diagnose failure" disabled disabledReason="AI-assisted failure analysis from recent logs is not available yet." />
+                <ActionBtn
+                    icon="pulse"
+                    label="Diagnose failure"
+                    disabled={!canDiagnose}
+                    disabledReason={!canDiagnose ? "AI-assisted analysis is only available for containers that failed recently." : undefined}
+                    onClick={() => onDiagnose(container)}
+                />
                 {!container.essential && !container.stackName && (
                     <ActionBtn
                         icon="link"
@@ -176,7 +185,7 @@ function ContainerRow({ container, stats, canMutate, canRemove, onAction, onEdit
     );
 }
 
-function StackGroup({ stack, items, stats, canMutate, canRemove, onAction, onEdit, onAssign, onAddContainer, onEditStack, onViewDetails, onDownloadLogs }: {
+function StackGroup({ stack, items, stats, canMutate, canRemove, onAction, onEdit, onAssign, onAddContainer, onEditStack, onViewDetails, onDownloadLogs, onDiagnose }: {
     stack: StackDTO;
     items: ContainerDTO[];
     stats: Record<string, ContainerStatsDTO>;
@@ -189,6 +198,7 @@ function StackGroup({ stack, items, stats, canMutate, canRemove, onAction, onEdi
     onEditStack: (stack: StackDTO) => void;
     onViewDetails: (container: ContainerDTO) => void;
     onDownloadLogs: (container: ContainerDTO) => void;
+    onDiagnose: (container: ContainerDTO) => void;
 }) {
     const [collapsed, setCollapsed] = useState(false);
     const running = items.filter(c => c.state === "running").length;
@@ -239,6 +249,7 @@ function StackGroup({ stack, items, stats, canMutate, canRemove, onAction, onEdi
                     onAssign={onAssign}
                     onViewDetails={onViewDetails}
                     onDownloadLogs={onDownloadLogs}
+                    onDiagnose={onDiagnose}
                 />
             ))}
         </div>
@@ -265,6 +276,7 @@ export default function ContainersView() {
     const [addingToStack, setAddingToStack] = useState<StackDTO | null>(null);
     const [viewingDetailsId, setViewingDetailsId] = useState<string | null>(null);
     const [showImport, setShowImport] = useState(false);
+    const [diagnosing, setDiagnosing] = useState<ContainerDTO | null>(null);
     const viewingDetails = viewingDetailsId ? containers.find(c => c.id === viewingDetailsId) ?? null : null;
 
     const refresh = useCallback(async () => {
@@ -379,6 +391,7 @@ export default function ContainersView() {
                             onAssign={setAssigning}
                             onViewDetails={c => setViewingDetailsId(c.id)}
                             onDownloadLogs={handleDownloadLogs}
+                            onDiagnose={setDiagnosing}
                         />
                     ))
                 )}
@@ -422,6 +435,7 @@ export default function ContainersView() {
                             onEditStack={setEditingStack}
                             onViewDetails={c => setViewingDetailsId(c.id)}
                             onDownloadLogs={handleDownloadLogs}
+                            onDiagnose={setDiagnosing}
                         />
                     ))
                 )}
@@ -451,6 +465,7 @@ export default function ContainersView() {
                             onAssign={setAssigning}
                             onViewDetails={c => setViewingDetailsId(c.id)}
                             onDownloadLogs={handleDownloadLogs}
+                            onDiagnose={setDiagnosing}
                         />
                     ))
                 )}
@@ -519,6 +534,10 @@ export default function ContainersView() {
 
             {showImport && (
                 <ImportContainerModal onClose={() => setShowImport(false)} onCreated={refresh} />
+            )}
+
+            {diagnosing && (
+                <AiDiagnosisModal container={diagnosing} onClose={() => setDiagnosing(null)} />
             )}
         </div>
     );

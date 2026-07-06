@@ -12,5 +12,6 @@ public record ContainerDTO(
         List<String> networks,
         List<String> mounts,
         boolean essential,
-        String stackName
+        String stackName,
+        boolean failed
 ) {}

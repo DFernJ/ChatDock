@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -71,6 +72,8 @@ public class ContainerService {
     private NetworkService networkService;
     @Autowired
     private ImageService imageService;
+    @Autowired
+    private ContainerFailureTracker containerFailureTracker;
 
     public List<ContainerDTO> listContainers() {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
@@ -416,6 +419,15 @@ public class ContainerService {
         return secret.getSecretValue();
     }
 
+    public Optional<App> findLinkedApp(String containerId) {
+        InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
+        String name = inspect.getName().replace("/", "");
+        if (name.startsWith(ESSENTIAL_CONTAINER_PREFIX)) {
+            return Optional.empty();
+        }
+        return appRepository.findByContainerName(name);
+    }
+
     private App resolveApp(String containerId) {
         InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
         String name = inspect.getName().replace("/", "");
@@ -669,7 +681,8 @@ public class ContainerService {
                 formatNetworks(c.getNetworkSettings().getNetworks().keySet().toArray(new String[0])),
                 formatMounts(c.getMounts().toArray(new ContainerMount[0])),
                 essential,
-                stackName
+                stackName,
+                containerFailureTracker.hasFailedRecently(c.getId())
         );
     }
 

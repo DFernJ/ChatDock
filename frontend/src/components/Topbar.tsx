@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.tsx";
+import { useNotifications } from "../context/NotificationsContext.tsx";
 import { getCounts } from "../lib/api/docker.ts";
 import type { CountDTO } from "../types/docker.ts";
+import NotificationsPanel from "./NotificationsPanel.tsx";
 
 type TopbarVariantPage = 'no-auth' | 'auth'
 export type DashboardView = 'containers' | 'images' | 'networks' | 'volumes';
@@ -48,9 +50,11 @@ function Logo() {
 
 function UserMenu() {
     const [open, setOpen] = useState(false);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
     const { user, logoutAuth } = useAuth();
+    const { unreadCount, markAllRead } = useNotifications();
 
     useEffect(() => {
         if (!open) return;
@@ -69,6 +73,12 @@ function UserMenu() {
         navigate("/");
     };
 
+    const openNotifications = () => {
+        setOpen(false);
+        setNotificationsOpen(true);
+        markAllRead();
+    };
+
     return (
         <div className="flex items-center gap-2 font-mono text-[18px]">
             <NavLink
@@ -83,9 +93,14 @@ function UserMenu() {
                 <button
                     type="button"
                     onClick={() => setOpen(o => !o)}
-                    className="w-10 h-10 grid place-items-center border border-ink-700 bg-ink-900/60 text-accent font-mono font-bold text-[17px] hover:border-ink-600 transition"
+                    className="relative w-10 h-10 grid place-items-center border border-ink-700 bg-ink-900/60 text-accent font-mono font-bold text-[17px] hover:border-ink-600 transition"
                 >
                     @
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 grid place-items-center bg-rose-400 text-ink-900 text-[10px] font-bold leading-none rounded-full">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                    )}
                 </button>
                 {open && (
                     <div className="absolute right-0 top-full mt-3 w-max border border-ink-700 bg-ink-800 shadow-card font-mono text-[14px] z-20">
@@ -98,6 +113,18 @@ function UserMenu() {
                         </button>
                         <button
                             type="button"
+                            onClick={openNotifications}
+                            className="w-full flex items-center justify-end gap-2 px-3 py-2 text-ink-300 hover:bg-ink-700 hover:text-accent transition border-b border-ink-700"
+                        >
+                            Notifications
+                            {unreadCount > 0 && (
+                                <span className="min-w-[18px] h-[18px] px-1 grid place-items-center bg-rose-400 text-ink-900 text-[10px] font-bold leading-none rounded-full">
+                                    {unreadCount > 9 ? "9+" : unreadCount}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleLogout}
                             className="w-full text-right px-3 py-2 text-ink-300 hover:bg-ink-700 hover:text-rose-400 transition"
                         >
@@ -106,6 +133,9 @@ function UserMenu() {
                     </div>
                 )}
             </div>
+            {notificationsOpen && (
+                <NotificationsPanel onClose={() => setNotificationsOpen(false)} />
+            )}
         </div>
     );
 }

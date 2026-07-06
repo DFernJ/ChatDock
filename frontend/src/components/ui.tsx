@@ -260,6 +260,28 @@ export function ConfirmDialog({ open, title, body, confirmLabel, danger, busy, o
     );
 }
 
+export interface ToastMessage {
+    id: string;
+    message: string;
+}
+
+export function ToastStack({ toasts, onDismiss }: { toasts: ToastMessage[]; onDismiss: (id: string) => void }) {
+    if (toasts.length === 0) return null;
+    return (
+        <div className="fixed top-4 right-4 z-[60] flex flex-col gap-2 max-w-[360px]">
+            {toasts.map(t => (
+                <div key={t.id} className="flex items-start gap-3 border border-rose-400/50 bg-ink-900 shadow-card px-4 py-3">
+                    <Icon name="pulse" className="w-3.5 h-3.5 text-rose-300 mt-0.5 shrink-0" />
+                    <p className="flex-1 text-[12px] text-ink-100 leading-relaxed font-mono">{t.message}</p>
+                    <button type="button" onClick={() => onDismiss(t.id)} className="text-ink-500 hover:text-ink-100 shrink-0">
+                        <Icon name="x" className="w-3 h-3" />
+                    </button>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
     return (
         <label className="flex flex-col gap-1.5">

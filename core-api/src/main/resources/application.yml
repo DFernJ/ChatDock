@@ -16,6 +16,15 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          options:
+            model: ${GEMINI_MODEL}
+            temperature: 0
+
 server:
   port: ${CORE_API_PORT}
 
@@ -43,9 +52,6 @@ app:
     zone-id: ${CLOUDFLARE_ZONE_ID}
     tunnel-id: ${CLOUDFLARE_TUNNEL_ID}
     base-domain: ${CLOUDFLARE_BASE_DOMAIN}
-  ai:
-    api-key: ${AI_API_KEY}
-    model: ${AI_MODEL}
 
 management:
   endpoints:
