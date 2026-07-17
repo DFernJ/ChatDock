@@ -103,10 +103,7 @@ public class ImportService {
                     .withPidsLimit(256L)
                     .withCapDrop(Capability.ALL)
                     .withSecurityOpts(List.of("no-new-privileges"));
-
-            // The container is started with an idle command first, since copying files into a container
-            // that hasn't started yet (its tmpfs mounts may not be live) is unreliable. The actual script
-            // then runs via `exec` against the already-running, already-populated container.
+            
             CreateContainerResponse created = dockerClient.createContainerCmd(IMPORTER_IMAGE)
                     .withHostConfig(hostConfig)
                     .withCmd("sleep", String.valueOf(SANDBOX_WAIT_SECONDS + 30))

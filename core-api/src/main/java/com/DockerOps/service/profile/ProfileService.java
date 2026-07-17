@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -70,6 +71,10 @@ public class ProfileService {
         return codeRepository.save(code);
     }
 
+    public Optional<User> findByDiscordId(Long discordId) {
+        return userRepository.findByDiscordId(discordId);
+    }
+
     public void unlinkDiscord(UUID userId) {
         User user = userRepository.findById(userId).orElseThrow();
         user.setDiscordId(null);
@@ -77,6 +82,7 @@ public class ProfileService {
         userRepository.save(user);
     }
 
+    @Transactional
     public User consumeDiscordLinkCode(String rawCode, Long discordId, String discordUsername) {
         Code code = codeRepository.findByCode(rawCode)
                 .filter(c -> c.getCodeType() == CodeType.DISCORD && c.getRemainUses() > 0)

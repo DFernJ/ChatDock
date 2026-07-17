@@ -1,0 +1,11 @@
+discord:
+  token: ${DISCORD_BOT_TOKEN}
+
+server:
+  port: ${BOT_SERVICE_PORT}
+
+backend:
+  url: ${BACKEND_URL}
+
+security:
+  internal-token: ${INTERNAL_SECURITY_TOKEN}

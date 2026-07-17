@@ -32,6 +32,17 @@ public class DiscordController {
         return ResponseEntity.ok(UserResponse.from(user));
     }
 
+    @GetMapping("/whoami")
+    public ResponseEntity<?> whoami(@RequestHeader(INTERNAL_TOKEN_HEADER) String token,
+                                     @RequestParam Long discordId) {
+        if (!internalToken.equals(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return profileService.findByDiscordId(discordId)
+                .map(user -> ResponseEntity.ok(UserResponse.from(user)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());

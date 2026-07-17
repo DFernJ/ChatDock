@@ -43,11 +43,6 @@ public class GitHubOAuthService {
     }
 
     public String buildAuthorizeUrl(String state) {
-        // Sends the user through the app's installation flow first (picking which repositories to grant
-        // access to), rather than straight to /login/oauth/authorize, which only asks for identity and never
-        // surfaces the repository picker. With "Request user authorization (OAuth) during installation"
-        // enabled on the GitHub App, installing redirects back to the same configured callback URL with a
-        // `code` and `state`, just like the plain OAuth flow.
         return UriComponentsBuilder.fromUriString(INSTALL_URL)
                 .queryParam("state", state)
                 .queryParam("redirect_uri", callbackUrl())
