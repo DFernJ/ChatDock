@@ -31,6 +31,7 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -57,6 +58,8 @@ public class ContainerService {
     private static final String ESSENTIAL_CONTAINER_PREFIX = "essential-";
     private static final String SUBDOMAIN_LABEL = "chatops.subdomain";
     private static final String STDIN_LABEL = "chatops.stdin";
+    private static final String APPS_NETWORK_NAME = "chatops-apps";
+    private static final int DEFAULT_SUBDOMAIN_PORT = 80;
     private static final Pattern SUBDOMAIN_PATTERN = Pattern.compile("^[A-Za-z0-9-]+$");
     private static final Set<String> RESERVED_SUBDOMAINS = Set.of("www", "api", "admin", "mail", "ftp", "root", "localhost");
 
@@ -74,6 +77,11 @@ public class ContainerService {
     private ImageService imageService;
     @Autowired
     private ContainerFailureTracker containerFailureTracker;
+    @Autowired
+    private SubdomainRoutingService subdomainRoutingService;
+
+    @Value("${app.cloudflare.base-domain}")
+    private String baseDomain;
 
     public List<ContainerDTO> listContainers() {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
@@ -195,10 +203,23 @@ public class ContainerService {
     }
 
     public void deleteContainer(String containerId, boolean force, boolean removeVolumes) {
+        String subdomain = null;
+        try {
+            Map<String, String> labels = dockerClient.inspectContainerCmd(containerId).exec().getConfig().getLabels();
+            if (labels != null) {
+                subdomain = labels.get(SUBDOMAIN_LABEL);
+            }
+        } catch (NotFoundException ignored) {
+        }
+
         dockerClient.removeContainerCmd(containerId)
                 .withForce(force)
                 .withRemoveVolumes(removeVolumes)
                 .exec();
+
+        if (subdomain != null) {
+            subdomainRoutingService.deprovision(subdomain);
+        }
     }
 
     public int countContainers() {
@@ -307,6 +328,9 @@ public class ContainerService {
                 networkService.connectContainer(network, containerId);
             }
         }
+        if (subdomain != null && (req.networks() == null || !req.networks().contains(APPS_NETWORK_NAME))) {
+            networkService.connectContainer(APPS_NETWORK_NAME, containerId);
+        }
 
         dockerClient.startContainerCmd(containerId).exec();
 
@@ -317,6 +341,15 @@ public class ContainerService {
                     if (secret.name() == null || secret.name().isBlank()) continue;
                     createSecret(containerId, new CreateAppSecretRequest(secret.name().trim(), secret.value()));
                 }
+            }
+        }
+
+        if (subdomain != null) {
+            try {
+                subdomainRoutingService.provision(subdomain, req.name().trim(), resolveSubdomainPort(req.image()));
+            } catch (RuntimeException e) {
+                dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+                throw e;
             }
         }
 
@@ -580,6 +613,21 @@ public class ContainerService {
         }
     }
 
+    private int resolveSubdomainPort(String image) {
+        try {
+            ContainerConfig imageConfig = dockerClient.inspectImageCmd(image).exec().getConfig();
+            if (imageConfig != null && imageConfig.getExposedPorts() != null) {
+                return Arrays.stream(imageConfig.getExposedPorts())
+                        .filter(p -> p.getProtocol() == InternetProtocol.TCP)
+                        .mapToInt(ExposedPort::getPort)
+                        .min()
+                        .orElse(DEFAULT_SUBDOMAIN_PORT);
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return DEFAULT_SUBDOMAIN_PORT;
+    }
+
     private long secondsToNanos(Integer seconds) {
         return (seconds != null ? seconds : 0) * 1_000_000_000L;
     }
@@ -671,6 +719,8 @@ public class ContainerService {
         String stackName = essential ? null : appRepository.findByContainerNameWithStack(name)
                 .map(app -> app.getStack().getStackName())
                 .orElse(null);
+        String subdomain = c.getLabels() != null ? c.getLabels().get(SUBDOMAIN_LABEL) : null;
+        String subdomainUrl = subdomain != null ? "https://" + subdomain + "." + baseDomain : null;
         return new ContainerDTO(
                 c.getId(),
                 name,
@@ -682,7 +732,8 @@ public class ContainerService {
                 formatMounts(c.getMounts().toArray(new ContainerMount[0])),
                 essential,
                 stackName,
-                containerFailureTracker.hasFailedRecently(c.getId())
+                containerFailureTracker.hasFailedRecently(c.getId()),
+                subdomainUrl
         );
     }
 

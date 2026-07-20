@@ -1,0 +1,155 @@
+services:
+
+# ─────────────── Database ───────────────
+  mysql:
+    image: mysql:9.7
+    container_name: essential-chat-ops-mysql
+    restart: on-failure:5
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal-net
+
+# ─────────────── Core API (Spring Boot + Gemini) ───────────────
+  core-api:
+    build:
+      context: ./core-api
+      dockerfile: Dockerfile
+    container_name: essential-chat-ops-core
+    restart: on-failure:5
+    environment:
+      CORE_API_PORT: ${CORE_API_PORT}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:${MYSQL_PORT}/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS}
+      INTERNAL_SECURITY_TOKEN: ${INTERNAL_SECURITY_TOKEN}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      BOT_SERVICE_URL: http://bot-service:${BOT_SERVICE_PORT}
+      GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID}
+      GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID}
+      CLOUDFLARE_TUNNEL_ID: ${CLOUDFLARE_TUNNEL_ID}
+      CLOUDFLARE_BASE_DOMAIN: ${CLOUDFLARE_BASE_DOMAIN}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dynamic-routes:/etc/nginx/conf.d/apps
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - internal-net
+
+
+# ─────────────── Bot Service (Spring Boot + Discord) ───────────────
+  bot-service:
+    build:
+      context: ./bot-service
+      dockerfile: Dockerfile
+    container_name: essential-chat-ops-bot
+    restart: on-failure:5
+    environment:
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      BOT_SERVICE_PORT: ${BOT_SERVICE_PORT}
+      INTERNAL_SECURITY_TOKEN: ${INTERNAL_SECURITY_TOKEN}
+      BACKEND_URL: http://core-api:${CORE_API_PORT}/api
+    depends_on:
+      core-api:
+        condition: service_healthy
+    networks:
+      - internal-net
+
+
+  # ─────────────── Frontend (React + Vite) ───────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: essential-chat-ops-frontend
+    restart: on-failure:5
+    ports:
+      - "127.0.0.1:5173:5173"
+    networks:
+      - external-net
+
+
+  # ─────────────── Reverse Proxy (Nginx) ───────────────
+  reverse-proxy:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: essential-chat-ops-nginx
+    restart: on-failure:5
+    ports:
+      - "80:80"
+    volumes:
+      - dynamic-routes:/etc/nginx/conf.d/apps
+      - nginx-audit-logs:/var/log/nginx-audit
+    depends_on:
+      core-api:
+        condition: service_healthy
+      bot-service:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    networks:
+      - external-net
+      - internal-net
+      - apps-net
+
+  # ─────────────── Cloudflare Tunnel ───────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: essential-chat-ops-cloudflared
+    restart: on-failure:5
+    command: tunnel run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - reverse-proxy
+    networks:
+      - external-net
+
+# ─────────────── Networks ───────────────
+networks:
+  external-net:
+    driver: bridge
+    name: chatops-external
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
+  internal-net:
+    driver: bridge
+    name: chatops-internal
+  apps-net:
+    driver: bridge
+    name: chatops-apps
+
+# ─────────────── Volumes ───────────────
+volumes:
+  mysql-data:
+    driver: local
+  dynamic-routes:
+    driver: local
+  nginx-audit-logs:
+    driver: local
+

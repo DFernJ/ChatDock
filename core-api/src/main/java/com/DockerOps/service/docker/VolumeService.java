@@ -51,7 +51,7 @@ public class VolumeService {
     }
 
     public int countVolumes() {
-        return dockerClient.listVolumesCmd().withDanglingFilter(true).exec().getVolumes().size();
+        return dockerClient.listVolumesCmd().exec().getVolumes().size();
     }
 
     private int countUsedInContainers(String volumeName, List<Container> containers) {

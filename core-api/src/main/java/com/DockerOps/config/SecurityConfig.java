@@ -25,7 +25,7 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_ENDPOINTS = {"/api/auth/**", "/api/internal/**"};
+    private static final String[] PUBLIC_ENDPOINTS = {"/api/auth/**", "/api/internal/**", "/actuator/health"};
 
     @Value("${app.security.cors.allow-origin}")
     private String[] corsAllowedOrigins;

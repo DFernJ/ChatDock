@@ -100,7 +100,18 @@ function ContainerRow({ container, stats, canMutate, canRemove, onAction, onEdit
 
             <div className="flex flex-col min-w-0">
                 <span className="font-mono text-[13px] text-ink-50 truncate">{container.name}</span>
-                <span className="font-mono text-[11px] text-ink-600 truncate">no subdomain linked</span>
+                {container.subdomainUrl ? (
+                    <a
+                        href={container.subdomainUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[11px] text-accent hover:underline truncate"
+                    >
+                        {container.subdomainUrl.replace(/^https?:\/\//, "")}
+                    </a>
+                ) : (
+                    <span className="font-mono text-[11px] text-ink-600 truncate">no subdomain linked</span>
+                )}
             </div>
 
             <div className="flex flex-col gap-0.5 min-w-0">

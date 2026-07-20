@@ -13,5 +13,6 @@ public record ContainerDTO(
         List<String> mounts,
         boolean essential,
         String stackName,
-        boolean failed
+        boolean failed,
+        String subdomainUrl
 ) {}

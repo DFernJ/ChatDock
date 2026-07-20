@@ -17,6 +17,7 @@ export interface ContainerDTO {
     essential: boolean;
     stackName: string | null;
     failed: boolean;
+    subdomainUrl: string | null;
 }
 
 export interface ContainerVolumeDTO {
