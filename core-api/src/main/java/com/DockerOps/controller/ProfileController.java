@@ -10,6 +10,7 @@ import com.DockerOps.service.profile.GitHubOAuthService;
 import com.DockerOps.service.profile.ProfileService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +24,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/profile")
 public class ProfileController {
@@ -44,39 +46,51 @@ public class ProfileController {
 
     @GetMapping
     public ResponseEntity<ProfileResponse> getProfile(Authentication authentication) {
+        log.info("Fetching profile for username={}", currentUser(authentication).getUsername());
         return ResponseEntity.ok(ProfileResponse.from(currentUser(authentication)));
     }
 
     @PatchMapping
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, Authentication authentication) {
-        User updated = profileService.updateUsername(currentUser(authentication).getId(), request.username());
+        User current = currentUser(authentication);
+        User updated = profileService.updateUsername(current.getId(), request.username());
         if (updated == null) {
+            log.warn("Rejected username update for username={}: conflict", current.getUsername());
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
         }
+        log.info("Updated username for user id={} to username={}", current.getId(), updated.getUsername());
         return ResponseEntity.ok(ProfileResponse.from(updated));
     }
 
     @PatchMapping("/password")
     public ResponseEntity<?> updatePassword(@RequestBody UpdatePasswordRequest request, Authentication authentication) {
+        User current = currentUser(authentication);
         if (request.newPassword() == null || request.newPassword().length() < MIN_PASSWORD_LENGTH) {
+            log.warn("Rejected password update for username={}: password too short", current.getUsername());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Password must be at least " + MIN_PASSWORD_LENGTH + " characters.");
         }
-        boolean updated = profileService.updatePassword(currentUser(authentication).getId(), request.currentPassword(), request.newPassword());
+        boolean updated = profileService.updatePassword(current.getId(), request.currentPassword(), request.newPassword());
         if (!updated) {
+            log.warn("Rejected password update for username={}: current password incorrect", current.getUsername());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Current password is incorrect.");
         }
+        log.info("Updated password for username={}", current.getUsername());
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/discord/link-code")
     public ResponseEntity<DiscordLinkCodeResponse> createDiscordLinkCode(Authentication authentication) {
-        Code code = profileService.generateDiscordLinkCode(currentUser(authentication).getId());
+        User current = currentUser(authentication);
+        Code code = profileService.generateDiscordLinkCode(current.getId());
+        log.info("Generated Discord link code for username={}", current.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(DiscordLinkCodeResponse.from(code));
     }
 
     @DeleteMapping("/discord")
     public ResponseEntity<?> unlinkDiscord(Authentication authentication) {
-        profileService.unlinkDiscord(currentUser(authentication).getId());
+        User current = currentUser(authentication);
+        profileService.unlinkDiscord(current.getId());
+        log.info("Unlinked Discord account for username={}", current.getUsername());
         return ResponseEntity.noContent().build();
     }
 
@@ -85,6 +99,7 @@ public class ProfileController {
         String state = UUID.randomUUID().toString();
         setGithubCookie(response, GITHUB_STATE_COOKIE, state, Duration.ofMinutes(10));
         setGithubCookie(response, GITHUB_ORIGIN_COOKIE, resolveFrontendOrigin(request), Duration.ofMinutes(10));
+        log.info("Starting GitHub OAuth authorization flow");
         response.sendRedirect(gitHubOAuthService.buildAuthorizeUrl(state));
     }
 
@@ -100,21 +115,27 @@ public class ProfileController {
         String redirectTo = (origin != null ? origin : allowedOrigins[0]) + "/profile";
 
         if (code == null || state == null || expectedState == null || !state.equals(expectedState)) {
+            log.warn("Rejected GitHub OAuth callback: invalid or missing state");
             response.sendRedirect(redirectTo + "?github=error");
             return;
         }
+        User current = currentUser(authentication);
         try {
             GitHubOAuthService.GitHubUser githubUser = gitHubOAuthService.exchangeCodeForUser(code);
-            profileService.linkGithub(currentUser(authentication).getId(), githubUser.id(), githubUser.login(), githubUser.accessToken());
+            profileService.linkGithub(current.getId(), githubUser.id(), githubUser.login(), githubUser.accessToken());
+            log.info("Linked GitHub account githubUsername={} to username={}", githubUser.login(), current.getUsername());
             response.sendRedirect(redirectTo + "?github=linked");
         } catch (Exception e) {
+            log.error("GitHub OAuth callback failed for username={}", current.getUsername(), e);
             response.sendRedirect(redirectTo + "?github=error");
         }
     }
 
     @DeleteMapping("/github")
     public ResponseEntity<?> unlinkGithub(Authentication authentication) {
-        profileService.unlinkGithub(currentUser(authentication).getId());
+        User current = currentUser(authentication);
+        profileService.unlinkGithub(current.getId());
+        log.info("Unlinked GitHub account for username={}", current.getUsername());
         return ResponseEntity.noContent().build();
     }
 
@@ -147,6 +168,7 @@ public class ProfileController {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
+        log.warn("Rejected request: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }
 }

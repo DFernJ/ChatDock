@@ -13,6 +13,8 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.ArrayList;
@@ -20,6 +22,8 @@ import java.util.Arrays;
 import java.util.List;
 
 public abstract class AbstractContainerLifecycleCommand implements ISlashCommands, IModalHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(AbstractContainerLifecycleCommand.class);
 
     private static final String MANAGED_CONTAINERS_CATEGORY = "Managed Containers";
     private static final String CONFIRM_INPUT = "confirm";
@@ -41,6 +45,7 @@ public abstract class AbstractContainerLifecycleCommand implements ISlashCommand
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
+        log.info("/{} requested by discordId={}", getName(), event.getUser().getIdLong());
         String containerName = resolveContainerName(event.getChannel());
         if (containerName == null) {
             event.reply("This command can only be used in a channel under the **" + MANAGED_CONTAINERS_CATEGORY + "** category.")
@@ -85,12 +90,16 @@ public abstract class AbstractContainerLifecycleCommand implements ISlashCommand
         }
 
         event.deferReply(true).queue();
+        long discordId = event.getUser().getIdLong();
+        log.info("Confirmed {} on container '{}' requested by discordId={}", getActionVerb(), containerName, discordId);
         try {
-            performAction(event, containerName, event.getUser().getIdLong());
+            performAction(event, containerName, discordId);
         } catch (HttpClientErrorException e) {
-            event.getHook().editOriginal(e.getResponseBodyAsString()).queue();
+            String body = e.getResponseBodyAsString();
+            log.warn("{} on container '{}' failed for discordId={}: {}", getActionVerb(), containerName, discordId, e.getStatusCode());
+            event.getHook().editOriginal(body.isBlank() ? "Something went wrong while running this action. Please try again." : body).queue();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("{} on container '{}' failed for discordId={}", getActionVerb(), containerName, discordId, e);
             event.getHook().editOriginal("Something went wrong while running this action. Please try again.").queue();
         }
     }

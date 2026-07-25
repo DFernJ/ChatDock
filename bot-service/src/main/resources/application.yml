@@ -9,3 +9,7 @@ backend:
 
 security:
   internal-token: ${INTERNAL_SECURITY_TOKEN}
+
+logging:
+  pattern:
+    console: "[%d{HH:mm:ss-dd/MM/yyyy}] - [%logger{0}] %msg%n"

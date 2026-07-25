@@ -2,6 +2,7 @@ package com.chatops.commands;
 
 import com.chatops.service.ApiService;
 import com.chatops.util.ChannelNames;
+import com.chatops.util.CommandAuditLog;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -12,6 +13,8 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -20,6 +23,7 @@ import java.util.List;
 @Component
 public class SlashSetupContainersCommand implements ISlashCommands, IButtonHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(SlashSetupContainersCommand.class);
     private static final String CONFIRM_BTN = "setup_containers_confirm_btn";
     private static final String CANCEL_BTN = "setup_containers_cancel_btn";
 
@@ -42,6 +46,7 @@ public class SlashSetupContainersCommand implements ISlashCommands, IButtonHandl
 
     @Override
     public void execute(SlashCommandInteractionEvent event) {
+        CommandAuditLog.logCommandRequested(getName(), event.getUser().getIdLong());
         if (!event.isFromGuild() || event.getGuild() == null) {
             event.reply("This command can only be used inside a server.").setEphemeral(true).queue();
             return;
@@ -76,6 +81,7 @@ public class SlashSetupContainersCommand implements ISlashCommands, IButtonHandl
                         .queue();
                 return;
             }
+            log.info("Confirmed Managed Containers setup for guild={} requested by discordId={}", guild.getId(), event.getUser().getIdLong());
 
             event.editMessage("Setting up the Managed Containers category... this may take a few seconds.")
                     .setComponents(List.of())
@@ -85,7 +91,7 @@ public class SlashSetupContainersCommand implements ISlashCommands, IButtonHandl
             try {
                 fetchedNames = apiService.fetchContainerNames();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to fetch container names for setup in guild={}", guild.getId(), e);
                 fetchedNames = List.of();
             }
             final List<String> containerNames = fetchedNames;
@@ -98,6 +104,7 @@ public class SlashSetupContainersCommand implements ISlashCommands, IButtonHandl
                         .queue(category -> createMissingContainerChannels(category, containerNames));
             }
         } else if (event.getComponentId().equals(CANCEL_BTN)) {
+            log.info("Managed Containers setup cancelled by discordId={}", event.getUser().getIdLong());
             event.editMessage("Setup cancelled.").setComponents(List.of()).queue();
         }
     }

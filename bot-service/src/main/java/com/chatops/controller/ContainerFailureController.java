@@ -2,6 +2,8 @@ package com.chatops.controller;
 
 import com.chatops.dto.ContainerFailureEvent;
 import com.chatops.service.ContainerFailureNotifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/internal")
 public class ContainerFailureController {
 
+    private static final Logger log = LoggerFactory.getLogger(ContainerFailureController.class);
     private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Token";
 
     @Value("${security.internal-token}")
@@ -30,8 +33,10 @@ public class ContainerFailureController {
     public ResponseEntity<?> containerFailure(@RequestHeader(INTERNAL_TOKEN_HEADER) String token,
                                                @RequestBody ContainerFailureEvent event) {
         if (!internalToken.equals(token)) {
+            log.warn("Rejected container failure notification for container '{}': invalid internal token", event.containerName());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        log.info("Received container failure notification for container '{}' (exitCode={})", event.containerName(), event.exitCode());
         containerFailureNotifier.notifyFailure(event);
         return ResponseEntity.ok().build();
     }

@@ -62,3 +62,7 @@ management:
     health:
       probes:
         enabled: true
+
+logging:
+  pattern:
+    console: "[%d{HH:mm:ss-dd/MM/yyyy}] - [%logger{0}] %msg%n"

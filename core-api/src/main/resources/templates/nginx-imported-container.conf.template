@@ -1,11 +1,9 @@
-upstream {{ app-name }} {
-    server {{ app-name }}:{{ app-port }};
-    keepalive 8;
-}
-
 server {
     listen 80;
     server_name {{ subdomain }}.{{ base-domain }};
+
+    resolver 127.0.0.11 valid=10s;
+    resolver_timeout 5s;
 
     client_max_body_size {{ app-max-body-size }};
 
@@ -14,7 +12,8 @@ server {
     proxy_read_timeout 60s;
 
     location / {
-        proxy_pass http://{{ app-name }};
+        set $upstream_app {{ app-name }}:{{ app-port }};
+        proxy_pass http://$upstream_app;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

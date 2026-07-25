@@ -73,7 +73,7 @@ services:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       BOT_SERVICE_PORT: ${BOT_SERVICE_PORT}
       INTERNAL_SECURITY_TOKEN: ${INTERNAL_SECURITY_TOKEN}
-      BACKEND_URL: http://core-api:${CORE_API_PORT}/api
+      BACKEND_URL: http://core-api:${CORE_API_PORT}
     depends_on:
       core-api:
         condition: service_healthy
