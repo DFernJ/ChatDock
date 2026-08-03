@@ -18,18 +18,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Tracks which containers most recently exited with an error, in memory, by polling the Docker daemon.
- * Also caches the AI diagnosis for the current failure so re-running the analysis on an unchanged
- * failure doesn't re-hit the Gemini API (and its rate limit) — the cache is invalidated the moment
- * the container fails again (its finishedAt timestamp changes) or recovers.
- */
 @Service
 public class ContainerFailureTracker {
+
+    private static final String ESSENTIAL_CONTAINER_PREFIX = "essential-";
 
     private record FailureInfo(String containerName, Long exitCode, Instant finishedAt, String diagnosis) {}
 
     private final Map<String, FailureInfo> failures = new ConcurrentHashMap<>();
+
+    private final Set<String> knownContainerNames = new HashSet<>();
+    private boolean lifecycleSeeded = false;
 
     @Autowired
     private DockerClient dockerClient;
@@ -42,11 +41,36 @@ public class ContainerFailureTracker {
     public void pollContainers() {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
         Set<String> seenIds = new HashSet<>();
+        Set<String> seenNames = new HashSet<>();
         for (Container c : containers) {
             seenIds.add(c.getId());
+            String name = c.getNames()[0].replace("/", "");
+            if (!name.startsWith(ESSENTIAL_CONTAINER_PREFIX)) {
+                seenNames.add(name);
+            }
             evaluateContainer(c);
         }
         failures.keySet().retainAll(seenIds);
+        trackLifecycle(seenNames);
+    }
+
+    private void trackLifecycle(Set<String> seenNames) {
+        if (!lifecycleSeeded) {
+            knownContainerNames.addAll(seenNames);
+            lifecycleSeeded = true;
+            return;
+        }
+        for (String name : seenNames) {
+            if (knownContainerNames.add(name)) {
+                eventPublisher.publishContainerCreated(name);
+            }
+        }
+        for (String name : knownContainerNames) {
+            if (!seenNames.contains(name)) {
+                eventPublisher.publishContainerDeleted(name);
+            }
+        }
+        knownContainerNames.retainAll(seenNames);
     }
 
     private void evaluateContainer(Container c) {

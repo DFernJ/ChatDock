@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../../../lib/api.ts";
-import { getContainerLogsText, getContainerStats } from "../../../lib/api/docker.ts";
-import type { ContainerDTO } from "../../../types/docker.ts";
+import { getContainerLogsText } from "../../../lib/api/docker.ts";
+import type { ContainerDTO, ContainerStatsDTO } from "../../../types/docker.ts";
 import { formatBytes, Icon } from "../../Ui.tsx";
 import TerminalPane from "./TerminalPane.tsx";
 import ConsolePane from "./ConsolePane.tsx";
@@ -16,7 +16,7 @@ interface StatSample {
 }
 
 const MAX_SAMPLES = 30;
-const POLL_MS = 5000;
+const BROADCAST_MS = 4000;
 
 function Sparkline({ points, color }: { points: number[]; color: string }) {
     const w = 100, h = 32;
@@ -62,38 +62,30 @@ function Metric({ label, value }: { label: string; value: string }) {
     );
 }
 
-export default function ContainerDetailsDrawer({ container, canMutate, onClose }: {
+export default function ContainerDetailsDrawer({ container, canMutate, latestStats, onClose }: {
     container: ContainerDTO;
     canMutate: boolean;
+    latestStats?: ContainerStatsDTO;
     onClose: () => void;
 }) {
     const [tab, setTab] = useState<Tab>("stats");
     const isRunning = container.state === "running";
 
     const [samples, setSamples] = useState<StatSample[]>([]);
-    const [statsError, setStatsError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (tab !== "stats" || !isRunning) return;
-        let cancelled = false;
-        const poll = () => {
-            getContainerStats(container.id)
-                .then(stats => {
-                    if (cancelled) return;
-                    setStatsError(null);
-                    setSamples(curr => [...curr, {
-                        cpu: stats.cpuPercent,
-                        mem: stats.memPercent,
-                        diskRead: stats.diskReadBytes,
-                        diskWrite: stats.diskWriteBytes,
-                    }].slice(-MAX_SAMPLES));
-                })
-                .catch(e => { if (!cancelled) setStatsError(e instanceof ApiError ? e.message : "Could not load stats."); });
-        };
-        poll();
-        const id = window.setInterval(poll, POLL_MS);
-        return () => { cancelled = true; window.clearInterval(id); };
-    }, [tab, isRunning, container.id]);
+        setSamples([]);
+    }, [container.id]);
+
+    useEffect(() => {
+        if (tab !== "stats" || !isRunning || !latestStats) return;
+        setSamples(curr => [...curr, {
+            cpu: latestStats.cpuPercent,
+            mem: latestStats.memPercent,
+            diskRead: latestStats.diskReadBytes,
+            diskWrite: latestStats.diskWriteBytes,
+        }].slice(-MAX_SAMPLES));
+    }, [latestStats, tab, isRunning]);
 
     const [logs, setLogs] = useState("");
     const [logsLoading, setLogsLoading] = useState(false);
@@ -110,7 +102,6 @@ export default function ContainerDetailsDrawer({ container, canMutate, onClose }
 
     useEffect(() => {
         if (tab === "logs") refreshLogs();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tab, container.id]);
 
     const latest = samples[samples.length - 1];
@@ -161,21 +152,21 @@ export default function ContainerDetailsDrawer({ container, canMutate, onClose }
                                 </div>
                                 <div className="border border-ink-700 bg-ink-900/40">
                                     <div className="px-4 py-2.5 border-b border-ink-700 flex justify-between items-center">
-                                        <span className="text-[10px] tracking-[0.22em] uppercase text-ink-500">CPU · every {POLL_MS / 1000}s</span>
+                                        <span className="text-[10px] tracking-[0.22em] uppercase text-ink-500">CPU · every {BROADCAST_MS / 1000}s</span>
                                         <span className="font-mono text-[11px] text-ink-400">{latest ? `${Math.round(latest.cpu)}%` : "—"}</span>
                                     </div>
                                     <div className="p-4"><Sparkline points={samples.map(s => s.cpu)} color="#bef264" /></div>
                                 </div>
                                 <div className="border border-ink-700 bg-ink-900/40">
                                     <div className="px-4 py-2.5 border-b border-ink-700 flex justify-between items-center">
-                                        <span className="text-[10px] tracking-[0.22em] uppercase text-ink-500">Memory · every {POLL_MS / 1000}s</span>
+                                        <span className="text-[10px] tracking-[0.22em] uppercase text-ink-500">Memory · every {BROADCAST_MS / 1000}s</span>
                                         <span className="font-mono text-[11px] text-ink-400">{latest ? `${Math.round(latest.mem)}%` : "—"}</span>
                                     </div>
                                     <div className="p-4"><Sparkline points={samples.map(s => s.mem)} color="#7dd3fc" /></div>
                                 </div>
                                 <div className="border border-ink-700 bg-ink-900/40">
                                     <div className="px-4 py-2.5 border-b border-ink-700 flex justify-between items-center">
-                                        <span className="text-[10px] tracking-[0.22em] uppercase text-ink-500">Disk I/O · every {POLL_MS / 1000}s</span>
+                                        <span className="text-[10px] tracking-[0.22em] uppercase text-ink-500">Disk I/O · every {BROADCAST_MS / 1000}s</span>
                                         <span className="flex items-center gap-3 font-mono text-[11px] text-ink-400">
                                             <span className="flex items-center gap-1.5"><span className="w-2 h-2 inline-block" style={{ backgroundColor: "#7dd3fc" }}></span>read</span>
                                             <span className="flex items-center gap-1.5"><span className="w-2 h-2 inline-block" style={{ backgroundColor: "#fcd34d" }}></span>write</span>
@@ -190,7 +181,6 @@ export default function ContainerDetailsDrawer({ container, canMutate, onClose }
                                         />
                                     </div>
                                 </div>
-                                {statsError && <p className="text-[12px] text-rose-400 font-mono">{statsError}</p>}
                             </>
                         )}
 

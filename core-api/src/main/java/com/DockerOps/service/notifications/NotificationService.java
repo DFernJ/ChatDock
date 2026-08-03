@@ -23,11 +23,6 @@ public class NotificationService {
                 .toList();
     }
 
-    /**
-     * Persists a container-failure notification, unless one already exists for the same
-     * container/finishedAt pair (e.g. after a core-api restart re-detects an already-known failure).
-     * Returns empty when deduped, so the caller knows not to re-broadcast it over SSE.
-     */
     public Optional<Notification> recordContainerFailure(String containerId, String containerName, Long exitCode, Instant finishedAt) {
         if (notificationRepository.existsByContainerIdAndFinishedAt(containerId, finishedAt)) {
             return Optional.empty();

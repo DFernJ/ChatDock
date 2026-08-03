@@ -23,6 +23,7 @@ import com.DockerOps.model.users.User;
 import com.DockerOps.service.ai.AiDiagnosisService;
 import com.DockerOps.service.docker.ContainerEventPublisher;
 import com.DockerOps.service.docker.ContainerService;
+import com.DockerOps.service.docker.DockerStateStreamService;
 import com.DockerOps.service.docker.ImageService;
 import com.DockerOps.service.docker.NetworkService;
 import com.DockerOps.service.docker.VolumeService;
@@ -62,6 +63,8 @@ public class DockerController {
     private AiDiagnosisService aiDiagnosisService;
     @Autowired
     private ContainerEventPublisher containerEventPublisher;
+    @Autowired
+    private DockerStateStreamService dockerStateStreamService;
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping("/count")
@@ -98,6 +101,13 @@ public class DockerController {
     public List<ContainerStatsDTO> getContainersStats() {
         log.info("Listing container stats");
         return containerService.listStats();
+    }
+
+    @PreAuthorize("hasAuthority('PERM_VIEWER')")
+    @GetMapping(path = "/state/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamDockerState() {
+        log.info("Subscribing to Docker state stream");
+        return dockerStateStreamService.subscribe();
     }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")

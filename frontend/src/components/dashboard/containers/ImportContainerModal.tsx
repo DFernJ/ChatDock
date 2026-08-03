@@ -581,7 +581,6 @@ function ZipPanel({ busy, onBusyChange, onImageBuilt, onPhaseChange, onComposeDe
         if (result?.kind === "none") onPhaseChange("dockerfile-form");
         else if (result?.kind === "compose") onPhaseChange("compose-review");
         else onPhaseChange("start");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [result]);
 
     const acceptFile = (candidate: File | undefined) => {

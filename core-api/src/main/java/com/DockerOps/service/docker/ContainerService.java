@@ -118,7 +118,7 @@ public class ContainerService {
         Throwable[] error = new Throwable[1];
         CountDownLatch latch = new CountDownLatch(1);
         dockerClient.statsCmd(id)
-                .withNoStream(true)  // snapshot único, no stream
+                .withNoStream(true)  
                 .exec(new ResultCallback.Adapter<>() {
                     @Override
                     public void onNext(Statistics stats) {
@@ -371,8 +371,13 @@ public class ContainerService {
                 : null;
 
         String currentId = id;
-        if (req.volumes() != null && volumesDiffer(inspect, req.volumes())) {
-            currentId = recreateWithVolumes(inspect, req, restartPolicy);
+        boolean volumesChanged = req.volumes() != null && volumesDiffer(inspect, req.volumes());
+        if (volumesChanged || resetsResourceLimitToUnlimited(inspect, req)) {
+            UpdateContainerRequest effectiveReq = req.volumes() != null
+                    ? req
+                    : new UpdateContainerRequest(req.memoryBytes(), req.nanoCPUs(), req.restartPolicyName(),
+                            req.restartPolicyMaxRetryCount(), req.networks(), namedVolumeMounts(inspect));
+            currentId = recreateWithVolumes(inspect, effectiveReq, restartPolicy);
         } else {
             dockerClient.updateContainerCmd(id)
                     .withMemory(req.memoryBytes())
@@ -580,6 +585,15 @@ public class ContainerService {
             requested.add(v.volumeName() + "->" + v.target());
         }
         return !current.equals(requested);
+    }
+
+    private boolean resetsResourceLimitToUnlimited(InspectContainerResponse inspect, UpdateContainerRequest req) {
+        HostConfig current = inspect.getHostConfig();
+        boolean memoryReset = req.memoryBytes() != null && req.memoryBytes() == 0
+                && current.getMemory() != null && current.getMemory() > 0;
+        boolean cpuReset = req.nanoCPUs() != null && req.nanoCPUs() == 0
+                && current.getNanoCPUs() != null && current.getNanoCPUs() > 0;
+        return memoryReset || cpuReset;
     }
 
     private void validateSubdomain(String subdomain) {

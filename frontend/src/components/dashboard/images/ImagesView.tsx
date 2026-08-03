@@ -84,10 +84,14 @@ export default function ImagesView() {
 
     useEffect(() => {
         setLoading(true);
-        refresh();
-        const id = window.setInterval(refresh, 5000);
-        return () => window.clearInterval(id);
-    }, [refresh]);
+        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
+        source.addEventListener("images", (event: MessageEvent) => {
+            setImages(JSON.parse(event.data) as ImageDTO[]);
+            setLoading(false);
+        });
+        source.onerror = () => setLoading(false);
+        return () => source.close();
+    }, []);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();

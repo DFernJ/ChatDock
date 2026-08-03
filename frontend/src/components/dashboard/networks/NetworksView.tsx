@@ -155,10 +155,17 @@ export default function NetworksView() {
 
     useEffect(() => {
         setLoading(true);
-        refresh();
-        const id = window.setInterval(refresh, 5000);
-        return () => window.clearInterval(id);
-    }, [refresh]);
+        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
+        source.addEventListener("networks", (event: MessageEvent) => {
+            setNetworks(JSON.parse(event.data) as NetworkDTO[]);
+            setLoading(false);
+        });
+        source.addEventListener("containers", (event: MessageEvent) => {
+            setContainers(JSON.parse(event.data) as ContainerDTO[]);
+        });
+        source.onerror = () => setLoading(false);
+        return () => source.close();
+    }, []);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();

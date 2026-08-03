@@ -112,10 +112,14 @@ export default function VolumesView() {
 
     useEffect(() => {
         setLoading(true);
-        refresh();
-        const id = window.setInterval(refresh, 5000);
-        return () => window.clearInterval(id);
-    }, [refresh]);
+        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
+        source.addEventListener("volumes", (event: MessageEvent) => {
+            setVolumes(JSON.parse(event.data) as VolumeDTO[]);
+            setLoading(false);
+        });
+        source.onerror = () => setLoading(false);
+        return () => source.close();
+    }, []);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();

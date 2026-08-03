@@ -34,14 +34,14 @@ public class ApiService {
         this.restTemplate = new RestTemplate();
     }
 
-    public List<String> fetchContainerNames() {
-        log.info("Fetching container list from core-api");
+    public List<String> fetchManagedContainerNames() {
+        log.info("Fetching container list from core-api for Managed Containers reconciliation");
         String url = backendUrl + "/api/internal/docker/containers";
         ContainerSummaryDto[] containers = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(internalHeaders()), ContainerSummaryDto[].class).getBody();
         if (containers == null) {
             return List.of();
         }
-        return Arrays.stream(containers).map(ContainerSummaryDto::name).toList();
+        return Arrays.stream(containers).filter(c -> !c.essential()).map(ContainerSummaryDto::name).toList();
     }
 
     public String linkDiscordAccount(String code, long discordId, String discordUsername) {

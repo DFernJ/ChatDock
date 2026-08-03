@@ -308,10 +308,23 @@ export default function ContainersView() {
 
     useEffect(() => {
         setLoading(true);
-        refresh();
-        const id = window.setInterval(refresh, 5000);
-        return () => window.clearInterval(id);
-    }, [refresh]);
+        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
+        source.addEventListener("containers", (event: MessageEvent) => {
+            setContainers(JSON.parse(event.data) as ContainerDTO[]);
+            setLoading(false);
+        });
+        source.addEventListener("stacks", (event: MessageEvent) => {
+            setStacksList(JSON.parse(event.data) as StackDTO[]);
+        });
+        source.addEventListener("stats", (event: MessageEvent) => {
+            const statsList = JSON.parse(event.data) as ContainerStatsDTO[];
+            const next: Record<string, ContainerStatsDTO> = {};
+            for (const s of statsList) next[s.containerId] = s;
+            setStats(next);
+        });
+        source.onerror = () => setLoading(false);
+        return () => source.close();
+    }, []);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -539,6 +552,7 @@ export default function ContainersView() {
                 <ContainerDetailsDrawer
                     container={viewingDetails}
                     canMutate={canMutate}
+                    latestStats={stats[viewingDetails.id]}
                     onClose={() => setViewingDetailsId(null)}
                 />
             )}

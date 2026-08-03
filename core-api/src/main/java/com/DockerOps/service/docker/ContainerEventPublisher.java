@@ -1,6 +1,7 @@
 package com.DockerOps.service.docker;
 
 import com.DockerOps.dto.response.ContainerFailureEvent;
+import com.DockerOps.dto.response.ContainerLifecycleEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -74,6 +75,28 @@ public class ContainerEventPublisher {
         } catch (RestClientException e) {
             log.warn("Failed to deliver container-failure webhook to bot-service for container '{}': {}",
                     event.containerName(), e.getMessage());
+        }
+    }
+
+    public void publishContainerCreated(String containerName) {
+        sendLifecycleWebhook("/api/internal/container-created", containerName);
+    }
+
+    public void publishContainerDeleted(String containerName) {
+        sendLifecycleWebhook("/api/internal/container-deleted", containerName);
+    }
+
+    private void sendLifecycleWebhook(String path, String containerName) {
+        try {
+            restClient.post()
+                    .uri(botServiceUrl + path)
+                    .header(INTERNAL_TOKEN_HEADER, internalToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new ContainerLifecycleEvent(containerName))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException e) {
+            log.warn("Failed to deliver {} webhook to bot-service for container '{}': {}", path, containerName, e.getMessage());
         }
     }
 }
