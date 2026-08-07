@@ -104,6 +104,7 @@ public class DockerStateStreamService {
             emitter.send(SseEmitter.event().name("images").data(state.images()));
         } catch (IOException | IllegalStateException e) {
             emitters.remove(emitter);
+            emitter.completeWithError(e);
         }
     }
 }

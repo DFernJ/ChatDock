@@ -30,6 +30,7 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.*;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -49,6 +50,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -83,6 +86,8 @@ public class ContainerService {
     @Value("${app.cloudflare.base-domain}")
     private String baseDomain;
 
+    private final ExecutorService statsExecutor = Executors.newVirtualThreadPerTaskExecutor();
+
     public List<ContainerDTO> listContainers() {
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
         List<ContainerDTO> containerResponse = new ArrayList<>();
@@ -103,7 +108,7 @@ public class ContainerService {
                 } catch (RuntimeException e) {
                     return null;
                 }
-            }));
+            }, statsExecutor));
         }
         List<ContainerStatsDTO> statsResponse = new ArrayList<>();
         for (CompletableFuture<ContainerStatsDTO> future : futures) {
@@ -111,6 +116,11 @@ public class ContainerService {
             if (stats != null) statsResponse.add(stats);
         }
         return statsResponse;
+    }
+
+    @PreDestroy
+    public void shutdownStatsExecutor() {
+        statsExecutor.shutdown();
     }
 
     public ContainerStatsDTO getStats(String id) {
@@ -346,7 +356,7 @@ public class ContainerService {
 
         if (subdomain != null) {
             try {
-                subdomainRoutingService.provision(subdomain, req.name().trim(), resolveSubdomainPort(req.image()));
+                subdomainRoutingService.provision(subdomain, req.name().trim(), resolveSubdomainPort(req.image(), req.ports()));
             } catch (RuntimeException e) {
                 dockerClient.removeContainerCmd(containerId).withForce(true).exec();
                 throw e;
@@ -627,7 +637,16 @@ public class ContainerService {
         }
     }
 
-    private int resolveSubdomainPort(String image) {
+    private int resolveSubdomainPort(String image, List<PortMappingDTO> ports) {
+        if (ports != null) {
+            Optional<Integer> explicit = ports.stream()
+                    .filter(p -> p.containerPort() != null && (p.protocol() == null || "tcp".equalsIgnoreCase(p.protocol())))
+                    .map(PortMappingDTO::containerPort)
+                    .min(Integer::compareTo);
+            if (explicit.isPresent()) {
+                return explicit.get();
+            }
+        }
         try {
             ContainerConfig imageConfig = dockerClient.inspectImageCmd(image).exec().getConfig();
             if (imageConfig != null && imageConfig.getExposedPorts() != null) {

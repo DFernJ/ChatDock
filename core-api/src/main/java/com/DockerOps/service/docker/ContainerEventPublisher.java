@@ -59,6 +59,7 @@ public class ContainerEventPublisher {
                 emitter.send(SseEmitter.event().name("container-failure").data(event));
             } catch (IOException | IllegalStateException e) {
                 emitters.remove(emitter);
+                emitter.completeWithError(e);
             }
         }
     }

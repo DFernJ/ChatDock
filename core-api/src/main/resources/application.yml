@@ -2,6 +2,11 @@ spring:
   application:
     name: DockerOps
 
+  task:
+    scheduling:
+      pool:
+        size: 4
+
   datasource:
     url: jdbc:mysql://${MYSQL_IP}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${MYSQL_USER}

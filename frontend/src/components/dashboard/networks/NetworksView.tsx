@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "../../../context/AuthContext.tsx";
+import { useDockerState } from "../../../context/DockerStateContext.tsx";
 import { canDelete, canEdit } from "../../../lib/permissions.ts";
 import { ApiError } from "../../../lib/api.ts";
 import {
     deleteNetwork,
     disconnectContainerFromNetwork,
-    listContainers,
-    listNetworks,
     pruneNetworks,
 } from "../../../lib/api/docker.ts";
-import type { ContainerDTO, NetworkDTO } from "../../../types/docker.ts";
+import type { NetworkDTO } from "../../../types/docker.ts";
 import {
     ActionBtn,
     ConfirmDialog,
@@ -128,9 +127,7 @@ export default function NetworksView() {
     const canMutate = canEdit(user?.permissionRole);
     const canRemove = canDelete(user?.permissionRole);
 
-    const [networks, setNetworks] = useState<NetworkDTO[]>([]);
-    const [containers, setContainers] = useState<ContainerDTO[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { networks, containers, loading, refresh: refreshShared } = useDockerState();
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [busy, setBusy] = useState(false);
@@ -143,29 +140,11 @@ export default function NetworksView() {
     const refresh = useCallback(async () => {
         setError(null);
         try {
-            const [networksList, containersList] = await Promise.all([listNetworks(), listContainers()]);
-            setNetworks(networksList);
-            setContainers(containersList);
+            await refreshShared();
         } catch (e) {
             setError(e instanceof ApiError ? e.message : "Could not load networks");
-        } finally {
-            setLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
-        setLoading(true);
-        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
-        source.addEventListener("networks", (event: MessageEvent) => {
-            setNetworks(JSON.parse(event.data) as NetworkDTO[]);
-            setLoading(false);
-        });
-        source.addEventListener("containers", (event: MessageEvent) => {
-            setContainers(JSON.parse(event.data) as ContainerDTO[]);
-        });
-        source.onerror = () => setLoading(false);
-        return () => source.close();
-    }, []);
+    }, [refreshShared]);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -330,19 +309,8 @@ export default function NetworksView() {
                     network={attachingTo}
                     availableContainers={availableContainers}
                     onClose={() => setAttachingTo(null)}
-                    onAttached={(containerName) => {
-                        const networkId = attachingTo.id;
+                    onAttached={() => {
                         setAttachingTo(null);
-                        if (containerName) {
-                            setNetworks(curr => curr.map(n => n.id === networkId && !n.connectedContainers.includes(containerName)
-                                ? {
-                                    ...n,
-                                    attachedToContainers: n.attachedToContainers + 1,
-                                    connectedContainers: [...n.connectedContainers, containerName],
-                                }
-                                : n
-                            ));
-                        }
                         refresh();
                     }}
                 />

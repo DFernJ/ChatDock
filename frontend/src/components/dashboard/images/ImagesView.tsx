@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "../../../context/AuthContext.tsx";
+import { useDockerState } from "../../../context/DockerStateContext.tsx";
 import { canDelete, canEdit } from "../../../lib/permissions.ts";
 import { ApiError } from "../../../lib/api.ts";
-import { deleteImage, listImages, pruneImages } from "../../../lib/api/docker.ts";
+import { deleteImage, pruneImages } from "../../../lib/api/docker.ts";
 import type { ImageDTO } from "../../../types/docker.ts";
 import {
     ActionBtn,
@@ -62,8 +63,7 @@ export default function ImagesView() {
     const canMutate = canEdit(user?.permissionRole);
     const canRemove = canDelete(user?.permissionRole);
 
-    const [images, setImages] = useState<ImageDTO[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { images, loading, refresh: refreshShared } = useDockerState();
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [pending, setPending] = useState<ImageDTO | null>(null);
@@ -74,24 +74,11 @@ export default function ImagesView() {
     const refresh = useCallback(async () => {
         setError(null);
         try {
-            setImages(await listImages());
+            await refreshShared();
         } catch (e) {
             setError(e instanceof ApiError ? e.message : "Could not load images");
-        } finally {
-            setLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
-        setLoading(true);
-        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
-        source.addEventListener("images", (event: MessageEvent) => {
-            setImages(JSON.parse(event.data) as ImageDTO[]);
-            setLoading(false);
-        });
-        source.onerror = () => setLoading(false);
-        return () => source.close();
-    }, []);
+    }, [refreshShared]);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();

@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "../../../context/AuthContext.tsx";
+import { useDockerState } from "../../../context/DockerStateContext.tsx";
 import { canDelete, canEdit } from "../../../lib/permissions.ts";
 import { ApiError } from "../../../lib/api.ts";
 import {
     deleteContainer,
     downloadContainerLogs,
-    getContainersStats,
-    listContainers,
-    listStacks,
     restartContainer,
     startContainer,
     stopContainer,
@@ -272,10 +270,7 @@ export default function ContainersView() {
     const canMutate = canEdit(user?.permissionRole);
     const canRemove = canDelete(user?.permissionRole);
 
-    const [containers, setContainers] = useState<ContainerDTO[]>([]);
-    const [stacksList, setStacksList] = useState<StackDTO[]>([]);
-    const [stats, setStats] = useState<Record<string, ContainerStatsDTO>>({});
-    const [loading, setLoading] = useState(false);
+    const { containers, stacksList, stats, loading, refresh: refreshShared } = useDockerState();
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [pending, setPending] = useState<PendingAction | null>(null);
@@ -293,38 +288,11 @@ export default function ContainersView() {
     const refresh = useCallback(async () => {
         setError(null);
         try {
-            const [list, statsList, stacksResult] = await Promise.all([listContainers(), getContainersStats(), listStacks()]);
-            setContainers(list);
-            setStacksList(stacksResult);
-            const next: Record<string, ContainerStatsDTO> = {};
-            for (const s of statsList) next[s.containerId] = s;
-            setStats(next);
+            await refreshShared();
         } catch (e) {
             setError(e instanceof ApiError ? e.message : "Could not load containers");
-        } finally {
-            setLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
-        setLoading(true);
-        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
-        source.addEventListener("containers", (event: MessageEvent) => {
-            setContainers(JSON.parse(event.data) as ContainerDTO[]);
-            setLoading(false);
-        });
-        source.addEventListener("stacks", (event: MessageEvent) => {
-            setStacksList(JSON.parse(event.data) as StackDTO[]);
-        });
-        source.addEventListener("stats", (event: MessageEvent) => {
-            const statsList = JSON.parse(event.data) as ContainerStatsDTO[];
-            const next: Record<string, ContainerStatsDTO> = {};
-            for (const s of statsList) next[s.containerId] = s;
-            setStats(next);
-        });
-        source.onerror = () => setLoading(false);
-        return () => source.close();
-    }, []);
+    }, [refreshShared]);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "../../../context/AuthContext.tsx";
+import { useDockerState } from "../../../context/DockerStateContext.tsx";
 import { canDelete, canEdit } from "../../../lib/permissions.ts";
 import { ApiError } from "../../../lib/api.ts";
-import { deleteVolume, listVolumes } from "../../../lib/api/docker.ts";
+import { deleteVolume } from "../../../lib/api/docker.ts";
 import type { VolumeDTO } from "../../../types/docker.ts";
 import {
     ActionBtn,
@@ -91,8 +92,7 @@ export default function VolumesView() {
     const canMutate = canEdit(user?.permissionRole);
     const canRemove = canDelete(user?.permissionRole);
 
-    const [volumes, setVolumes] = useState<VolumeDTO[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { volumes, loading, refresh: refreshShared } = useDockerState();
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [pending, setPending] = useState<VolumeDTO | null>(null);
@@ -102,24 +102,11 @@ export default function VolumesView() {
     const refresh = useCallback(async () => {
         setError(null);
         try {
-            setVolumes(await listVolumes());
+            await refreshShared();
         } catch (e) {
             setError(e instanceof ApiError ? e.message : "Could not load volumes");
-        } finally {
-            setLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
-        setLoading(true);
-        const source = new EventSource("/api/docker/state/stream", { withCredentials: true });
-        source.addEventListener("volumes", (event: MessageEvent) => {
-            setVolumes(JSON.parse(event.data) as VolumeDTO[]);
-            setLoading(false);
-        });
-        source.onerror = () => setLoading(false);
-        return () => source.close();
-    }, []);
+    }, [refreshShared]);
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();

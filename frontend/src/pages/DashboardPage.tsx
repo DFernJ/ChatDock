@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { resolveDashboardView } from "../components/Topbar.tsx";
 import type { DashboardView } from "../components/Topbar.tsx";
+import { DockerStateProvider } from "../context/DockerStateContext.tsx";
 import ContainersView from "../components/dashboard/containers/ContainersView.tsx";
 import VolumesView from "../components/dashboard/volumes/VolumesView.tsx";
 import NetworksView from "../components/dashboard/networks/NetworksView.tsx";
@@ -23,15 +24,17 @@ export default function DashboardPage() {
             </h1>
 
             <div className="flex-1 min-h-0 mt-6">
-                {view === "containers" ? (
-                    <ContainersView />
-                ) : view === "volumes" ? (
-                    <VolumesView />
-                ) : view === "networks" ? (
-                    <NetworksView />
-                ) : (
-                    <ImagesView />
-                )}
+                <DockerStateProvider>
+                    {view === "containers" ? (
+                        <ContainersView />
+                    ) : view === "volumes" ? (
+                        <VolumesView />
+                    ) : view === "networks" ? (
+                        <NetworksView />
+                    ) : (
+                        <ImagesView />
+                    )}
+                </DockerStateProvider>
             </div>
         </main>
     );

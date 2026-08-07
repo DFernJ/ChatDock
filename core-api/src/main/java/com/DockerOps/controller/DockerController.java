@@ -91,9 +91,9 @@ public class DockerController {
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping(path = "/containers/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamContainerEvents() {
+    public ResponseEntity<SseEmitter> streamContainerEvents() {
         log.info("Subscribing to container events stream");
-        return containerEventPublisher.subscribe();
+        return sseResponse(containerEventPublisher.subscribe());
     }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
@@ -105,9 +105,16 @@ public class DockerController {
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping(path = "/state/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamDockerState() {
+    public ResponseEntity<SseEmitter> streamDockerState() {
         log.info("Subscribing to Docker state stream");
-        return dockerStateStreamService.subscribe();
+        return sseResponse(dockerStateStreamService.subscribe());
+    }
+
+    private ResponseEntity<SseEmitter> sseResponse(SseEmitter emitter) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform")
+                .header("X-Accel-Buffering", "no")
+                .body(emitter);
     }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
