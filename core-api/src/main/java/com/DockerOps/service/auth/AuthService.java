@@ -11,6 +11,7 @@ import com.DockerOps.repository.users.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -30,6 +31,7 @@ public class AuthService {
                         passwordEncoder.matches(password, user.getPassword_hash())).orElse(null);
     }
 
+    @Transactional
     public User registerUser(RegisterRequest registerRequest) {
         if (userRepository.existsByUsername(registerRequest.username()) ||
                 userRepository.existsByEmail(registerRequest.email())) {
@@ -48,6 +50,7 @@ public class AuthService {
                 .permissions(registerRequest.userPermissions() != null ? registerRequest.userPermissions() : UserPermissions.VIEWER)
                 .enabled(true)
                 .build();
+        user.setCreatedBy(code.getUser().getId());
         userRepository.save(user);
 
         code.setRemainUses(code.getRemainUses() - 1);
