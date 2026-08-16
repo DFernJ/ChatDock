@@ -3,6 +3,7 @@ package com.DockerOps.dto.response;
 import com.DockerOps.model.notifications.Notification;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 public record NotificationDTO(
@@ -15,7 +16,7 @@ public record NotificationDTO(
         Instant createdAt,
         boolean read
 ) {
-    public static NotificationDTO from(Notification n) {
+    public static NotificationDTO from(Notification n, Set<UUID> readNotificationIds) {
         return new NotificationDTO(
                 n.getId(),
                 n.getContainerId(),
@@ -24,7 +25,7 @@ public record NotificationDTO(
                 n.getFinishedAt(),
                 n.getMessage(),
                 n.getCreatedAt(),
-                n.isRead()
+                readNotificationIds.contains(n.getId())
         );
     }
 }

@@ -39,7 +39,4 @@ public class Notification extends Auditable {
 
     @Column(nullable = false)
     private String message;
-
-    @Column(nullable = false, name = "is_read")
-    private boolean read;
 }

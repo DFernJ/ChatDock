@@ -12,6 +12,5 @@ import java.util.UUID;
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
     List<Notification> findAllByOrderByCreatedAtDesc();
-    List<Notification> findByReadFalse();
     boolean existsByContainerIdAndFinishedAt(String containerId, Instant finishedAt);
 }

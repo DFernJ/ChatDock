@@ -1,11 +1,13 @@
 package com.DockerOps.controller;
 
 import com.DockerOps.dto.response.NotificationDTO;
+import com.DockerOps.model.users.User;
 import com.DockerOps.service.notifications.NotificationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,16 +28,16 @@ public class NotificationController {
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping
-    public List<NotificationDTO> list() {
+    public List<NotificationDTO> list(Authentication authentication) {
         log.info("Listing notifications");
-        return notificationService.list();
+        return notificationService.list(currentUser(authentication).getId());
     }
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @PostMapping("/read")
-    public ResponseEntity<Void> markAllRead() {
+    public ResponseEntity<Void> markAllRead(Authentication authentication) {
         log.info("Marking all notifications as read");
-        notificationService.markAllRead();
+        notificationService.markAllRead(currentUser(authentication).getId());
         return ResponseEntity.noContent().build();
     }
 
@@ -53,5 +55,9 @@ public class NotificationController {
         log.info("Deleting all notifications");
         notificationService.deleteAll();
         return ResponseEntity.noContent().build();
+    }
+
+    private User currentUser(Authentication authentication) {
+        return (User) authentication.getPrincipal();
     }
 }
