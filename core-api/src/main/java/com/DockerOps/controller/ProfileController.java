@@ -106,6 +106,7 @@ public class ProfileController {
     @GetMapping("/github/callback")
     public void githubCallback(@RequestParam(required = false) String code,
                                 @RequestParam(required = false) String state,
+                                @RequestParam(value = "installation_id", required = false) Long installationId,
                                 @CookieValue(value = GITHUB_STATE_COOKIE, required = false) String expectedState,
                                 @CookieValue(value = GITHUB_ORIGIN_COOKIE, required = false) String origin,
                                 Authentication authentication,
@@ -122,7 +123,7 @@ public class ProfileController {
         User current = currentUser(authentication);
         try {
             GitHubOAuthService.GitHubUser githubUser = gitHubOAuthService.exchangeCodeForUser(code);
-            profileService.linkGithub(current.getId(), githubUser.id(), githubUser.login(), githubUser.accessToken());
+            profileService.linkGithub(current.getId(), githubUser.id(), githubUser.login(), githubUser.accessToken(), installationId);
             log.info("Linked GitHub account githubUsername={} to username={}", githubUser.login(), current.getUsername());
             response.sendRedirect(redirectTo + "?github=linked");
         } catch (Exception e) {

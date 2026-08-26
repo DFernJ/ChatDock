@@ -70,8 +70,10 @@ public class ImportController {
     @PreAuthorize("hasAuthority('PERM_EDITOR')")
     @GetMapping("/github/repos")
     public List<GitHubRepoDTO> listGithubRepos(Authentication authentication) {
-        log.info("Listing GitHub repositories for username={}", currentUser(authentication).getUsername());
-        return gitHubOAuthService.listRepositories(requireGithubToken(authentication));
+        User current = currentUser(authentication);
+        log.info("Listing GitHub repositories for username={}", current.getUsername());
+        requireGithubToken(authentication);
+        return gitHubOAuthService.listRepositories(current);
     }
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")

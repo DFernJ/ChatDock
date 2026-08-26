@@ -49,9 +49,11 @@ public class User extends Auditable {
     @Column(name = "github_username")
     private String githubUsername;
 
-    @Convert(converter = SecretValueConverter.class)
-    @Column(name = "github_access_token")
+    @Column(name = "github_access_token", columnDefinition = "TEXT")
     private String githubAccessToken;
+
+    @Column(name = "github_installation_id")
+    private Long installationId;
 
     @Column(name = "discord_id", unique = true)
     private Long discordId;

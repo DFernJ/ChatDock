@@ -103,7 +103,7 @@ public class ProfileService {
         return user;
     }
 
-    public void linkGithub(UUID userId, long githubId, String login, String accessToken) {
+    public void linkGithub(UUID userId, long githubId, String login, String accessToken, Long installationId) {
         User user = userRepository.findById(userId).orElseThrow();
         if (!Long.valueOf(githubId).equals(user.getGithubId()) && userRepository.existsByGithubId(githubId)) {
             throw new IllegalArgumentException("This GitHub account is already linked to another user.");
@@ -111,6 +111,9 @@ public class ProfileService {
         user.setGithubId(githubId);
         user.setGithubUsername(login);
         user.setGithubAccessToken(accessToken);
+        if (installationId != null) {
+            user.setInstallationId(installationId);
+        }
         userRepository.save(user);
     }
 
@@ -126,6 +129,7 @@ public class ProfileService {
         user.setGithubId(null);
         user.setGithubUsername(null);
         user.setGithubAccessToken(null);
+        user.setInstallationId(null);
         userRepository.save(user);
     }
 }

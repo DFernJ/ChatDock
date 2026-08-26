@@ -355,6 +355,7 @@ export default function ContainersView() {
                 refreshing={loading}
                 primaryLabel="Import container"
                 onPrimary={() => setShowImport(true)}
+                primaryDisabled={!canMutate}
             />
 
             {error && <ErrorBanner message={error} />}

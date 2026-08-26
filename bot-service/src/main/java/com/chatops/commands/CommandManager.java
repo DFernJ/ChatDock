@@ -3,6 +3,8 @@ package com.chatops.commands;
 import com.chatops.service.ApiService;
 import com.chatops.service.ContainerLifecycleNotifier;
 import com.chatops.service.LinkAccountsProvisioner;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -40,18 +42,28 @@ public class CommandManager extends ListenerAdapter {
 
     @Override
     public void onGuildReady(GuildReadyEvent event) {
+        setupGuild(event.getGuild());
+    }
+
+    @Override
+    public void onGuildJoin(GuildJoinEvent event) {
+        log.info("Bot added to guild={}, running setup", event.getGuild().getId());
+        setupGuild(event.getGuild());
+    }
+
+    private void setupGuild(Guild guild) {
         List<SlashCommandData> dataSlashCommands = new ArrayList<>();
         for (ISlashCommands slashCommand: slashCommands) {
             dataSlashCommands.add(slashCommand.getCommandData());
         }
 
-        event.getGuild().updateCommands().addCommands(dataSlashCommands).queue();
-        linkAccountsProvisioner.ensureLinkAccountsChannel(event.getGuild());
+        guild.updateCommands().addCommands(dataSlashCommands).queue();
+        linkAccountsProvisioner.ensureLinkAccountsChannel(guild);
 
         try {
-            containerLifecycleNotifier.reconcileManagedContainers(event.getGuild(), apiService.fetchManagedContainerNames());
+            containerLifecycleNotifier.reconcileManagedContainers(guild, apiService.fetchManagedContainerNames());
         } catch (Exception e) {
-            log.warn("Could not reconcile Managed Containers channels for guild={}: {}", event.getGuild().getId(), e.getMessage());
+            log.warn("Could not reconcile Managed Containers channels for guild={}: {}", guild.getId(), e.getMessage());
         }
     }
 
