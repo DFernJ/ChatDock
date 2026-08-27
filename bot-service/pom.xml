@@ -12,9 +12,9 @@
 
     <groupId>com.chatops</groupId>
     <artifactId>chatops-bot</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>ChatOPS_BOT</name>
-    <description>Bot basado en Spring Boot y JDA</description>
+    <version>1.0.0</version>
+    <name>ChatDock_BOT</name>
+    <description>Spring Boot and JDA Discord bot based</description>
 
     <properties>
         <java.version>21</java.version>
