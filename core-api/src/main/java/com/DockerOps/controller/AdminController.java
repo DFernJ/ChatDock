@@ -75,7 +75,8 @@ public class AdminController {
             log.warn("Rejected self-delete attempt on user id={}", id);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Cannot delete your own account");
         }
-        if (!adminService.deleteUser(id)) {
+        User admin = (User) authentication.getPrincipal();
+        if (!adminService.deleteUser(id, admin)) {
             log.warn("Rejected deletion for user id={}: not found", id);
             return ResponseEntity.notFound().build();
         }

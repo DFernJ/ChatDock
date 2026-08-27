@@ -8,12 +8,15 @@ import com.DockerOps.model.users.User;
 import com.DockerOps.model.users.enums.CodeType;
 import com.DockerOps.model.users.enums.UserAuthRole;
 import com.DockerOps.model.users.enums.UserPermissions;
+import com.DockerOps.repository.apps.AppRepository;
+import com.DockerOps.repository.apps.AppStackRepository;
 import com.DockerOps.repository.users.CodeRepository;
 import com.DockerOps.repository.users.UserRepository;
 import com.DockerOps.service.users.CodeGeneratorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +28,10 @@ public class AdminService {
     private UserRepository userRepository;
     @Autowired
     private CodeRepository codeRepository;
+    @Autowired
+    private AppRepository appRepository;
+    @Autowired
+    private AppStackRepository appStackRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
     @Autowired
@@ -64,10 +71,15 @@ public class AdminService {
         }).orElse(null);
     }
 
-    public boolean deleteUser(UUID id) {
+    @Transactional
+    public boolean deleteUser(UUID id, User newOwner) {
         if (!userRepository.existsById(id)) {
             return false;
         }
+        User user = userRepository.getReferenceById(id);
+        appRepository.reassignOwner(user, newOwner);
+        appStackRepository.reassignOwner(user, newOwner);
+        codeRepository.deleteByUser(user);
         userRepository.deleteById(id);
         return true;
     }

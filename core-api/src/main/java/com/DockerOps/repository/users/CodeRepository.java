@@ -20,4 +20,6 @@ public interface CodeRepository extends JpaRepository<Code, UUID> {
     List<Code> findAllByOrderByCreatedAtDesc();
 
     void deleteByUserAndCodeType(User user, CodeType codeType);
+
+    void deleteByUser(User user);
 }
