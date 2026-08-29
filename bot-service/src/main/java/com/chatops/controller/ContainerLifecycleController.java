@@ -2,6 +2,7 @@ package com.chatops.controller;
 
 import com.chatops.dto.ContainerLifecycleEvent;
 import com.chatops.service.ContainerLifecycleNotifier;
+import com.chatops.util.InternalHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContainerLifecycleController {
 
     private static final Logger log = LoggerFactory.getLogger(ContainerLifecycleController.class);
-    private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Token";
 
     @Value("${security.internal-token}")
     private String internalToken;
@@ -30,9 +30,9 @@ public class ContainerLifecycleController {
     }
 
     @PostMapping("/container-created")
-    public ResponseEntity<?> containerCreated(@RequestHeader(INTERNAL_TOKEN_HEADER) String token,
+    public ResponseEntity<?> containerCreated(@RequestHeader(InternalHeader.NAME) String token,
                                                @RequestBody ContainerLifecycleEvent event) {
-        if (!internalToken.equals(token)) {
+        if (!InternalHeader.matches(internalToken, token)) {
             log.warn("Rejected container-created notification for '{}': invalid internal token", event.containerName());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -42,9 +42,9 @@ public class ContainerLifecycleController {
     }
 
     @PostMapping("/container-deleted")
-    public ResponseEntity<?> containerDeleted(@RequestHeader(INTERNAL_TOKEN_HEADER) String token,
+    public ResponseEntity<?> containerDeleted(@RequestHeader(InternalHeader.NAME) String token,
                                                @RequestBody ContainerLifecycleEvent event) {
-        if (!internalToken.equals(token)) {
+        if (!InternalHeader.matches(internalToken, token)) {
             log.warn("Rejected container-deleted notification for '{}': invalid internal token", event.containerName());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }

@@ -2,6 +2,7 @@ package com.DockerOps.service.docker;
 
 import com.DockerOps.dto.response.ContainerFailureEvent;
 import com.DockerOps.dto.response.ContainerLifecycleEvent;
+import com.DockerOps.util.InternalHeader;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -20,8 +21,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 @Service
 public class ContainerEventPublisher {
-
-    private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Token";
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     private final RestClient restClient;
@@ -68,7 +67,7 @@ public class ContainerEventPublisher {
         try {
             restClient.post()
                     .uri(botServiceUrl + "/api/internal/container-failure")
-                    .header(INTERNAL_TOKEN_HEADER, internalToken)
+                    .header(InternalHeader.NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(event)
                     .retrieve()
@@ -91,7 +90,7 @@ public class ContainerEventPublisher {
         try {
             restClient.post()
                     .uri(botServiceUrl + path)
-                    .header(INTERNAL_TOKEN_HEADER, internalToken)
+                    .header(InternalHeader.NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new ContainerLifecycleEvent(containerName))
                     .retrieve()

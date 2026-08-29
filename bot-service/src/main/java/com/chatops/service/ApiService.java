@@ -6,6 +6,7 @@ import com.chatops.dto.DiagnosisResponse;
 import com.chatops.dto.DiscordLinkRequest;
 import com.chatops.dto.DiscordLinkResponse;
 import com.chatops.dto.WhoAmIResponse;
+import com.chatops.util.InternalHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +23,6 @@ import java.util.List;
 public class ApiService {
 
     private static final Logger log = LoggerFactory.getLogger(ApiService.class);
-    private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Token";
 
     private final RestTemplate restTemplate;
     @Value("${backend.url}")
@@ -107,7 +107,7 @@ public class ApiService {
 
     private HttpHeaders internalHeaders() {
         HttpHeaders headers = new HttpHeaders();
-        headers.set(INTERNAL_TOKEN_HEADER, internalToken);
+        headers.set(InternalHeader.NAME, internalToken);
         return headers;
     }
 }
