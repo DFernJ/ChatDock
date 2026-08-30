@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -50,11 +51,6 @@ import java.util.regex.Pattern;
 @Service
 public class ImportService {
 
-    private static final String IMPORTER_IMAGE = "chatops/importer:latest";
-    private static final long MAX_ZIP_BYTES = 300L * 1024 * 1024;
-    private static final long SANDBOX_WAIT_SECONDS = 60;
-    private static final long BUILD_TIMEOUT_SECONDS = 300;
-    private static final long IMPORTER_BUILD_TIMEOUT_SECONDS = 120;
     private static final Pattern UPLOAD_ID_PATTERN = Pattern.compile("^[0-9a-fA-F-]{36}$");
     private static final Pattern PROJECT_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9-]+$");
     private static final Pattern REPOSITORY_PATTERN = Pattern.compile("^[\\w.-]+/[\\w.-]+$");
@@ -71,6 +67,19 @@ public class ImportService {
     private VolumeService volumeService;
     @Autowired
     private AppStackRepository appStackRepository;
+
+    @Value("${app.import.image}")
+    private String importerImage;
+    @Value("${app.import.max-zip-bytes}")
+    private long maxZipBytes;
+    @Value("${app.import.sandbox-wait-seconds}")
+    private long sandboxWaitSeconds;
+    @Value("${app.import.build-timeout-seconds}")
+    private long buildTimeoutSeconds;
+    @Value("${app.import.image-build-timeout-seconds}")
+    private long importerBuildTimeoutSeconds;
+    @Value("${app.import.sandbox-memory-bytes}")
+    private long sandboxMemoryBytes;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -99,14 +108,14 @@ public class ImportService {
 
             HostConfig hostConfig = HostConfig.newHostConfig()
                     .withNetworkMode("none")
-                    .withMemory(512L * 1024 * 1024)
+                    .withMemory(sandboxMemoryBytes)
                     .withPidsLimit(256L)
                     .withCapDrop(Capability.ALL)
                     .withSecurityOpts(List.of("no-new-privileges"));
-            
-            CreateContainerResponse created = dockerClient.createContainerCmd(IMPORTER_IMAGE)
+
+            CreateContainerResponse created = dockerClient.createContainerCmd(importerImage)
                     .withHostConfig(hostConfig)
-                    .withCmd("sleep", String.valueOf(SANDBOX_WAIT_SECONDS + 30))
+                    .withCmd("sleep", String.valueOf(sandboxWaitSeconds + 30))
                     .exec();
             containerId = created.getId();
             log.info("[import {}] sandbox container created: {}", uploadId, containerId);
@@ -204,7 +213,7 @@ public class ImportService {
                             .withTarInputStream(tarStream)
                             .withTags(Set.of(tag))
                             .exec(new BuildImageResultCallback())
-                            .awaitImageId(BUILD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                            .awaitImageId(buildTimeoutSeconds, TimeUnit.SECONDS);
                 }
             } finally {
                 Files.deleteIfExists(tarPath);
@@ -231,7 +240,7 @@ public class ImportService {
                         .withTarInputStream(contextTar)
                         .withTags(Set.of(tag))
                         .exec(new BuildImageResultCallback())
-                        .awaitImageId(BUILD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                        .awaitImageId(buildTimeoutSeconds, TimeUnit.SECONDS);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -278,14 +287,14 @@ public class ImportService {
             log.info("[import {}] importer image ready", importId);
 
             HostConfig hostConfig = HostConfig.newHostConfig()
-                    .withMemory(512L * 1024 * 1024)
+                    .withMemory(sandboxMemoryBytes)
                     .withPidsLimit(256L)
                     .withCapDrop(Capability.ALL)
                     .withSecurityOpts(List.of("no-new-privileges"));
 
-            CreateContainerResponse created = dockerClient.createContainerCmd(IMPORTER_IMAGE)
+            CreateContainerResponse created = dockerClient.createContainerCmd(importerImage)
                     .withHostConfig(hostConfig)
-                    .withCmd("sleep", String.valueOf(SANDBOX_WAIT_SECONDS + 30))
+                    .withCmd("sleep", String.valueOf(sandboxWaitSeconds + 30))
                     .exec();
             containerId = created.getId();
             log.info("[import {}] sandbox container created: {}", importId, containerId);
@@ -431,7 +440,7 @@ public class ImportService {
                         .withTarInputStream(tarStream)
                         .withTags(Set.of(tag))
                         .exec(new BuildImageResultCallback())
-                        .awaitImageId(BUILD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                        .awaitImageId(buildTimeoutSeconds, TimeUnit.SECONDS);
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -462,8 +471,8 @@ public class ImportService {
             throw new UncheckedIOException(e);
         }
         try {
-            if (Files.size(zipPath) > MAX_ZIP_BYTES) {
-                throw new IllegalArgumentException("The uploaded file is too large (max " + (MAX_ZIP_BYTES / (1024 * 1024)) + " MB)");
+            if (Files.size(zipPath) > maxZipBytes) {
+                throw new IllegalArgumentException("The uploaded file is too large (max " + (maxZipBytes / (1024 * 1024)) + " MB)");
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -499,7 +508,7 @@ public class ImportService {
 
     private void ensureImporterImageBuilt() {
         try {
-            dockerClient.inspectImageCmd(IMPORTER_IMAGE).exec();
+            dockerClient.inspectImageCmd(importerImage).exec();
             return;
         } catch (NotFoundException ignored) {
             // build below
@@ -515,9 +524,9 @@ public class ImportService {
             try (InputStream tarStream = Files.newInputStream(tarPath)) {
                 dockerClient.buildImageCmd()
                         .withTarInputStream(tarStream)
-                        .withTags(Set.of(IMPORTER_IMAGE))
+                        .withTags(Set.of(importerImage))
                         .exec(new BuildImageResultCallback())
-                        .awaitImageId(IMPORTER_BUILD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                        .awaitImageId(importerBuildTimeoutSeconds, TimeUnit.SECONDS);
             } finally {
                 deleteRecursively(buildDir);
                 Files.deleteIfExists(tarPath);
@@ -548,7 +557,7 @@ public class ImportService {
                             }
                         }
                     })
-                    .awaitCompletion(SANDBOX_WAIT_SECONDS, TimeUnit.SECONDS);
+                    .awaitCompletion(sandboxWaitSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

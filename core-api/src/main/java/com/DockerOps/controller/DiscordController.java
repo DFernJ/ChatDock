@@ -8,6 +8,7 @@ import com.DockerOps.util.InternalHeader;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,11 +23,13 @@ public class DiscordController {
 
     @Autowired
     private ProfileService profileService;
+    @Autowired
+    private InternalHeader internalHeader;
 
     @PostMapping("/link")
-    public ResponseEntity<?> link(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> link(@RequestHeader HttpHeaders headers,
                                    @RequestBody DiscordConsumeLinkRequest request) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected Discord link request for discordId={}: invalid internal token", request.discordId());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -36,9 +39,9 @@ public class DiscordController {
     }
 
     @GetMapping("/whoami")
-    public ResponseEntity<?> whoami(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> whoami(@RequestHeader HttpHeaders headers,
                                      @RequestParam Long discordId) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected whoami request for discordId={}: invalid internal token", discordId);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }

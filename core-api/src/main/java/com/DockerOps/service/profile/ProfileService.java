@@ -8,6 +8,7 @@ import com.DockerOps.repository.users.UserRepository;
 import com.DockerOps.service.users.CodeGeneratorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,8 @@ import java.util.UUID;
 @Service
 public class ProfileService {
 
-    private static final Duration DISCORD_CODE_TTL = Duration.ofMinutes(10);
+    @Value("${app.discord.link-code-ttl-minutes}")
+    private int discordCodeTtlMinutes;
 
     @Autowired
     private UserRepository userRepository;
@@ -66,7 +68,7 @@ public class ProfileService {
                 .user(user)
                 .remainUses(1)
                 .codeType(CodeType.DISCORD)
-                .expiresAt(Instant.now().plus(DISCORD_CODE_TTL))
+                .expiresAt(Instant.now().plus(Duration.ofMinutes(discordCodeTtlMinutes)))
                 .build();
         return codeRepository.save(code);
     }

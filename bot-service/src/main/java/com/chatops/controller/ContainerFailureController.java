@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,9 @@ public class ContainerFailureController {
     @Value("${security.internal-token}")
     private String internalToken;
 
+    @Autowired
+    private InternalHeader internalHeader;
+
     private final ContainerFailureNotifier containerFailureNotifier;
 
     public ContainerFailureController(ContainerFailureNotifier containerFailureNotifier) {
@@ -31,9 +35,9 @@ public class ContainerFailureController {
     }
 
     @PostMapping("/container-failure")
-    public ResponseEntity<?> containerFailure(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> containerFailure(@RequestHeader HttpHeaders headers,
                                                @RequestBody ContainerFailureEvent event) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected container failure notification for container '{}': invalid internal token", event.containerName());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }

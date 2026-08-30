@@ -115,6 +115,33 @@ To install ChatDock, follow these steps:
 
 4. Access the web service by navigating to the domain name you set up with Cloudflare in your web browser.
 
+# Operational configuration
+
+Besides the environment variables in `.env` (secrets and per-deployment values such as URLs, ports and credentials), `core-api` exposes a set of internal tuning parameters in `core-api/src/main/resources/application.yml` under the `app` key. These are operational defaults (timeouts, size limits, network/image names) rather than deployment secrets, so they ship with sensible values and only need to be edited directly in the YAML file if you want to change them:
+
+| Property | Default | Purpose |
+|---|---|---|
+| `app.docker.connection-timeout-seconds` | `10` | Timeout to establish a connection with the Docker daemon. |
+| `app.docker.response-timeout-seconds` | `60` | Timeout to wait for a response from the Docker daemon. |
+| `app.docker.stats-wait-seconds` | `5` | Max wait time when collecting a container's resource stats. |
+| `app.docker.logs-wait-seconds` | `30` | Max wait time when streaming a container's logs. |
+| `app.docker.pull-image-timeout-seconds` | `120` | Timeout when pulling an image before creating a container. |
+| `app.docker.apps-network-name` | `chatops-apps` | Docker network used to expose imported apps through the reverse proxy. |
+| `app.docker.default-subdomain-port` | `80` | Fallback container port used when publishing a subdomain and none can be inferred. |
+| `app.docker.reserved-subdomains` | `www,api,admin,mail,ftp,root,localhost` | Comma-separated subdomains that can't be claimed by an app. |
+| `app.dockerhub.search-page-size` | `25` | Number of results returned when searching Docker Hub for images. |
+| `app.import.image` | `chatops/importer:latest` | Tag of the sandboxed image used to analyze uploaded/cloned projects. |
+| `app.import.max-zip-bytes` | `314572800` (300 MB) | Max size accepted for a ZIP upload. |
+| `app.import.sandbox-wait-seconds` | `60` | Max time the import sandbox container is allowed to run. |
+| `app.import.build-timeout-seconds` | `300` | Timeout when building an image from an imported project. |
+| `app.import.image-build-timeout-seconds` | `120` | Timeout when building the importer's own sandbox image, on first use. |
+| `app.import.sandbox-memory-bytes` | `536870912` (512 MB) | Memory limit for the import sandbox container. |
+| `app.ai.max-log-bytes` | `10485760` (10 MB) | Max amount of log data (tail) sent to Gemini for AI diagnosis. |
+| `app.oauth.github-state-cookie-ttl-minutes` | `10` | Lifetime of the CSRF-state cookies used during the GitHub OAuth flow. |
+| `app.discord.link-code-ttl-minutes` | `10` | Lifetime of the one-time code used to link a Discord account. |
+
+`bot-service` has no equivalent section — all of its configuration is already environment-driven through `.env`.
+
 # Repository Structure
 
 The repository is organized as follows:

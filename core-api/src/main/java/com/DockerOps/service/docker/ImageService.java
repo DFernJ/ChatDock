@@ -10,6 +10,7 @@ import com.github.dockerjava.api.model.PruneResponse;
 import com.github.dockerjava.api.model.PruneType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -28,11 +29,16 @@ public class ImageService {
     @Autowired
     private DockerClient dockerClient;
 
+    @Value("${app.docker.pull-image-timeout-seconds}")
+    private int pullImageTimeoutSeconds;
+    @Value("${app.dockerhub.search-page-size}")
+    private int dockerHubSearchPageSize;
+
     public List<ImageDTO> listImages() {
         List<Image> images = dockerClient.listImagesCmd().withShowAll(true).exec();
         List<ImageDTO> response = new ArrayList<>();
         for (Image image : images) {
-            response.add(formatImage(image.getId(), image.getRepoTags(), image.getSize(), image.getContainers()));
+            response.add(ImageDTO.from(image.getId(), image.getRepoTags(), image.getSize(), image.getContainers()));
         }
         return response;
     }
@@ -42,7 +48,7 @@ public class ImageService {
             dockerClient.pullImageCmd(repository)
                     .withTag(tag)
                     .exec(new PullImageResultCallback())
-                    .awaitCompletion(120, TimeUnit.SECONDS);
+                    .awaitCompletion(pullImageTimeoutSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while pulling image", e);
@@ -74,7 +80,7 @@ public class ImageService {
                     .uri(uriBuilder -> uriBuilder
                             .path("/v2/search/repositories/")
                             .queryParam("query", query)
-                            .queryParam("page_size", 25)
+                            .queryParam("page_size", dockerHubSearchPageSize)
                             .build())
                     .retrieve()
                     .body(DockerHubSearchResponseDTO.class);
@@ -86,12 +92,5 @@ public class ImageService {
             log.warn("Docker Hub search failed for query '{}'", query, e);
             return Collections.emptyList();
         }
-    }
-
-    private ImageDTO formatImage(String id, String[] repoTags, Long size, Integer containers) {
-        String image = (repoTags != null && repoTags.length > 0) ? repoTags[0] : "<none>:<none>";
-        long diskUsage = size != null ? size : 0;
-        int usedInContainers = (containers != null && containers >= 0) ? containers : 0;
-        return new ImageDTO(id, image, diskUsage, usedInContainers);
     }
 }

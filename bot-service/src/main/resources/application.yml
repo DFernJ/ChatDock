@@ -9,6 +9,7 @@ backend:
 
 security:
   internal-token: ${INTERNAL_SECURITY_TOKEN}
+  internal-token-header: X-Internal-Token
 
 logging:
   pattern:

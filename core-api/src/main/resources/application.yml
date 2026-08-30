@@ -1,6 +1,6 @@
 spring:
   application:
-    name: DockerOps
+    name: ChatDock
 
   task:
     scheduling:
@@ -35,11 +35,36 @@ server:
 
 app:
   public-url: ${APP_PUBLIC_URL}
+  docker:
+    connection-timeout-seconds: 10
+    response-timeout-seconds: 60
+    stats-wait-seconds: 5
+    logs-wait-seconds: 30
+    pull-image-timeout-seconds: 120
+    apps-network-name: chatops-apps
+    default-subdomain-port: 80
+    reserved-subdomains: www,api,admin,mail,ftp,root,localhost
+  dockerhub:
+    search-page-size: 25
+  import:
+    image: chatops/importer:latest
+    max-zip-bytes: 314572800
+    sandbox-wait-seconds: 60
+    build-timeout-seconds: 300
+    image-build-timeout-seconds: 120
+    sandbox-memory-bytes: 536870912
+  ai:
+    max-log-bytes: 10485760
+  oauth:
+    github-state-cookie-ttl-minutes: 10
+  discord:
+    link-code-ttl-minutes: 10
   security:
     jwt:
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS}
     internal-token: ${INTERNAL_SECURITY_TOKEN}
+    internal-token-header: X-Internal-Token
     cypher:
       encryption-key: ${SECRET_ENCRYPTION_KEY}
     cookie:

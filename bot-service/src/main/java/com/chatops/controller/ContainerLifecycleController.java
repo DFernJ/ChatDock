@@ -5,7 +5,9 @@ import com.chatops.service.ContainerLifecycleNotifier;
 import com.chatops.util.InternalHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +25,9 @@ public class ContainerLifecycleController {
     @Value("${security.internal-token}")
     private String internalToken;
 
+    @Autowired
+    private InternalHeader internalHeader;
+
     private final ContainerLifecycleNotifier containerLifecycleNotifier;
 
     public ContainerLifecycleController(ContainerLifecycleNotifier containerLifecycleNotifier) {
@@ -30,9 +35,9 @@ public class ContainerLifecycleController {
     }
 
     @PostMapping("/container-created")
-    public ResponseEntity<?> containerCreated(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> containerCreated(@RequestHeader HttpHeaders headers,
                                                @RequestBody ContainerLifecycleEvent event) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected container-created notification for '{}': invalid internal token", event.containerName());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -42,9 +47,9 @@ public class ContainerLifecycleController {
     }
 
     @PostMapping("/container-deleted")
-    public ResponseEntity<?> containerDeleted(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> containerDeleted(@RequestHeader HttpHeaders headers,
                                                @RequestBody ContainerLifecycleEvent event) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected container-deleted notification for '{}': invalid internal token", event.containerName());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }

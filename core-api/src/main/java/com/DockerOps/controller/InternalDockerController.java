@@ -16,6 +16,7 @@ import org.springframework.ai.retry.NonTransientAiException;
 import org.springframework.ai.retry.TransientAiException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,10 +39,12 @@ public class InternalDockerController {
     private AiDiagnosisService aiDiagnosisService;
     @Autowired
     private ProfileService profileService;
+    @Autowired
+    private InternalHeader internalHeader;
 
     @GetMapping("/containers")
-    public ResponseEntity<List<ContainerDTO>> getContainers(@RequestHeader(InternalHeader.NAME) String token) {
-        if (!InternalHeader.matches(internalToken, token)) {
+    public ResponseEntity<List<ContainerDTO>> getContainers(@RequestHeader HttpHeaders headers) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected list containers request: invalid internal token");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -50,10 +53,10 @@ public class InternalDockerController {
     }
 
     @PostMapping("/containers/{name}/start")
-    public ResponseEntity<?> start(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> start(@RequestHeader HttpHeaders headers,
                                     @PathVariable String name,
                                     @RequestParam Long discordId) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected start request for container '{}': invalid internal token", name);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -64,10 +67,10 @@ public class InternalDockerController {
     }
 
     @PostMapping("/containers/{name}/stop")
-    public ResponseEntity<?> stop(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> stop(@RequestHeader HttpHeaders headers,
                                    @PathVariable String name,
                                    @RequestParam Long discordId) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected stop request for container '{}': invalid internal token", name);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -78,10 +81,10 @@ public class InternalDockerController {
     }
 
     @PostMapping("/containers/{name}/restart")
-    public ResponseEntity<?> restart(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> restart(@RequestHeader HttpHeaders headers,
                                       @PathVariable String name,
                                       @RequestParam Long discordId) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected restart request for container '{}': invalid internal token", name);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -92,12 +95,12 @@ public class InternalDockerController {
     }
 
     @DeleteMapping("/containers/{name}")
-    public ResponseEntity<?> delete(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<?> delete(@RequestHeader HttpHeaders headers,
                                      @PathVariable String name,
                                      @RequestParam Long discordId,
                                      @RequestParam(defaultValue = "false") boolean force,
                                      @RequestParam(defaultValue = "false") boolean removeVolumes) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected delete request for container '{}': invalid internal token", name);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -108,10 +111,10 @@ public class InternalDockerController {
     }
 
     @GetMapping(value = "/containers/{name}/logs", produces = MediaType.TEXT_PLAIN_VALUE)
-    public ResponseEntity<String> logs(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<String> logs(@RequestHeader HttpHeaders headers,
                                         @PathVariable String name,
                                         @RequestParam Long discordId) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected logs request for container '{}': invalid internal token", name);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -122,10 +125,10 @@ public class InternalDockerController {
     }
 
     @GetMapping("/containers/{name}/stats")
-    public ResponseEntity<ContainerStatsDTO> stats(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<ContainerStatsDTO> stats(@RequestHeader HttpHeaders headers,
                                                      @PathVariable String name,
                                                      @RequestParam Long discordId) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected stats request for container '{}': invalid internal token", name);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -135,10 +138,10 @@ public class InternalDockerController {
     }
 
     @PostMapping("/containers/{name}/diagnosis")
-    public ResponseEntity<AiDiagnosisResponse> diagnosis(@RequestHeader(InternalHeader.NAME) String token,
+    public ResponseEntity<AiDiagnosisResponse> diagnosis(@RequestHeader HttpHeaders headers,
                                                            @PathVariable String name,
                                                            @RequestParam Long discordId) {
-        if (!InternalHeader.matches(internalToken, token)) {
+        if (!internalHeader.matches(internalToken, headers.getFirst(internalHeader.getName()))) {
             log.warn("Rejected diagnosis request for container '{}': invalid internal token", name);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }

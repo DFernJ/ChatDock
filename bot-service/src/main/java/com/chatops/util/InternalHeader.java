@@ -1,13 +1,19 @@
 package com.chatops.util;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
 public class InternalHeader {
 
-    public static final String NAME = "X-Internal-Token";
+    @Value("${security.internal-token-header}")
+    private String name;
 
-    private InternalHeader() {
+    public String getName() {
+        return name;
     }
 
-    public static boolean matches(String expectedToken, String receivedToken) {
+    public boolean matches(String expectedToken, String receivedToken) {
         return expectedToken.equals(receivedToken);
     }
 }

@@ -9,6 +9,7 @@ import com.chatops.dto.WhoAmIResponse;
 import com.chatops.util.InternalHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +30,8 @@ public class ApiService {
     private String backendUrl;
     @Value("${security.internal-token}")
     private String internalToken;
+    @Autowired
+    private InternalHeader internalHeader;
 
     public ApiService() {
         this.restTemplate = new RestTemplate();
@@ -107,7 +110,7 @@ public class ApiService {
 
     private HttpHeaders internalHeaders() {
         HttpHeaders headers = new HttpHeaders();
-        headers.set(InternalHeader.NAME, internalToken);
+        headers.set(internalHeader.getName(), internalToken);
         return headers;
     }
 }

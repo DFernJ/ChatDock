@@ -4,6 +4,7 @@ import com.DockerOps.dto.response.ContainerFailureEvent;
 import com.DockerOps.dto.response.ContainerLifecycleEvent;
 import com.DockerOps.util.InternalHeader;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -29,6 +30,8 @@ public class ContainerEventPublisher {
     private String botServiceUrl;
     @Value("${app.security.internal-token}")
     private String internalToken;
+    @Autowired
+    private InternalHeader internalHeader;
 
     public ContainerEventPublisher() {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
@@ -67,7 +70,7 @@ public class ContainerEventPublisher {
         try {
             restClient.post()
                     .uri(botServiceUrl + "/api/internal/container-failure")
-                    .header(InternalHeader.NAME, internalToken)
+                    .header(internalHeader.getName(), internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(event)
                     .retrieve()
@@ -90,7 +93,7 @@ public class ContainerEventPublisher {
         try {
             restClient.post()
                     .uri(botServiceUrl + path)
-                    .header(InternalHeader.NAME, internalToken)
+                    .header(internalHeader.getName(), internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new ContainerLifecycleEvent(containerName))
                     .retrieve()

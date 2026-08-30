@@ -44,6 +44,9 @@ public class ProfileController {
     @Value("${app.security.cors.allow-origin}")
     private String[] allowedOrigins;
 
+    @Value("${app.oauth.github-state-cookie-ttl-minutes}")
+    private int githubStateCookieTtlMinutes;
+
     @GetMapping
     public ResponseEntity<ProfileResponse> getProfile(Authentication authentication) {
         log.info("Fetching profile for username={}", currentUser(authentication).getUsername());
@@ -97,8 +100,8 @@ public class ProfileController {
     @GetMapping("/github/authorize")
     public void authorizeGithub(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String state = UUID.randomUUID().toString();
-        setGithubCookie(response, GITHUB_STATE_COOKIE, state, Duration.ofMinutes(10));
-        setGithubCookie(response, GITHUB_ORIGIN_COOKIE, resolveFrontendOrigin(request), Duration.ofMinutes(10));
+        setGithubCookie(response, GITHUB_STATE_COOKIE, state, Duration.ofMinutes(githubStateCookieTtlMinutes));
+        setGithubCookie(response, GITHUB_ORIGIN_COOKIE, resolveFrontendOrigin(request), Duration.ofMinutes(githubStateCookieTtlMinutes));
         log.info("Starting GitHub OAuth authorization flow");
         response.sendRedirect(gitHubOAuthService.buildAuthorizeUrl(state));
     }

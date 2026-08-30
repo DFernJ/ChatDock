@@ -20,8 +20,6 @@ import java.util.Optional;
 @Service
 public class AiDiagnosisService {
 
-    private static final int MAX_LOG_BYTES = 10 * 1024 * 1024;
-
     private static final String SYSTEM_PROMPT = """
             You are a senior site reliability engineer diagnosing a Docker container failure from its logs.
 
@@ -55,6 +53,8 @@ public class AiDiagnosisService {
     private String API_KEY;
     @Value("${spring.ai.google.genai.chat.options.model}")
     private String MODEL;
+    @Value("${app.ai.max-log-bytes}")
+    private int maxLogBytes;
 
     private Client client;
 
@@ -80,7 +80,7 @@ public class AiDiagnosisService {
         }
 
         byte[] logs = containerService.getLogs(containerId);
-        byte[] tail = tailBytes(logs, MAX_LOG_BYTES);
+        byte[] tail = tailBytes(logs, maxLogBytes);
         String logsText = new String(tail, StandardCharsets.UTF_8);
 
         if (logsText.isBlank()) {

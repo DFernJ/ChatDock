@@ -61,10 +61,7 @@ public class ContainerService {
     private static final String ESSENTIAL_CONTAINER_PREFIX = "essential-";
     private static final String SUBDOMAIN_LABEL = "chatops.subdomain";
     private static final String STDIN_LABEL = "chatops.stdin";
-    private static final String APPS_NETWORK_NAME = "chatops-apps";
-    private static final int DEFAULT_SUBDOMAIN_PORT = 80;
     private static final Pattern SUBDOMAIN_PATTERN = Pattern.compile("^[A-Za-z0-9-]+$");
-    private static final Set<String> RESERVED_SUBDOMAINS = Set.of("www", "api", "admin", "mail", "ftp", "root", "localhost");
 
     @Autowired
     private DockerClient dockerClient;
@@ -85,6 +82,16 @@ public class ContainerService {
 
     @Value("${app.cloudflare.base-domain}")
     private String baseDomain;
+    @Value("${app.docker.apps-network-name}")
+    private String appsNetworkName;
+    @Value("${app.docker.default-subdomain-port}")
+    private int defaultSubdomainPort;
+    @Value("${app.docker.reserved-subdomains}")
+    private String[] reservedSubdomains;
+    @Value("${app.docker.stats-wait-seconds}")
+    private int statsWaitSeconds;
+    @Value("${app.docker.logs-wait-seconds}")
+    private int logsWaitSeconds;
 
     private final ExecutorService statsExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -144,7 +151,7 @@ public class ContainerService {
                 });
 
         try {
-            latch.await(5, TimeUnit.SECONDS);
+            latch.await(statsWaitSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for stats", e);
@@ -153,7 +160,7 @@ public class ContainerService {
         if (error[0] != null) {
             throw (error[0] instanceof RuntimeException re) ? re : new RuntimeException(error[0]);
         }
-        return mapToDTO(id, result[0]);
+        return ContainerStatsDTO.from(id, result[0]);
     }
 
     public void startContainer(String containerId) {
@@ -200,7 +207,7 @@ public class ContainerService {
                 });
 
         try {
-            latch.await(30, TimeUnit.SECONDS);
+            latch.await(logsWaitSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for logs", e);
@@ -238,18 +245,7 @@ public class ContainerService {
 
     public ContainerConfigDTO getContainerConfig(String id) {
         InspectContainerResponse inspect = dockerClient.inspectContainerCmd(id).exec();
-        HostConfig hostConfig = inspect.getHostConfig();
-        RestartPolicy restartPolicy = hostConfig.getRestartPolicy();
-        List<String> networks = new ArrayList<>(inspect.getNetworkSettings().getNetworks().keySet());
-        return new ContainerConfigDTO(
-                id,
-                hostConfig.getMemory(),
-                hostConfig.getNanoCPUs(),
-                restartPolicy != null ? restartPolicy.getName() : null,
-                restartPolicy != null ? restartPolicy.getMaximumRetryCount() : null,
-                networks,
-                namedVolumeMounts(inspect)
-        );
+        return ContainerConfigDTO.from(id, inspect);
     }
 
     public ContainerDTO createContainer(CreateContainerRequest req, User owner) {
@@ -338,8 +334,8 @@ public class ContainerService {
                 networkService.connectContainer(network, containerId);
             }
         }
-        if (subdomain != null && (req.networks() == null || !req.networks().contains(APPS_NETWORK_NAME))) {
-            networkService.connectContainer(APPS_NETWORK_NAME, containerId);
+        if (subdomain != null && (req.networks() == null || !req.networks().contains(appsNetworkName))) {
+            networkService.connectContainer(appsNetworkName, containerId);
         }
 
         dockerClient.startContainerCmd(containerId).exec();
@@ -386,7 +382,7 @@ public class ContainerService {
             UpdateContainerRequest effectiveReq = req.volumes() != null
                     ? req
                     : new UpdateContainerRequest(req.memoryBytes(), req.nanoCPUs(), req.restartPolicyName(),
-                            req.restartPolicyMaxRetryCount(), req.networks(), namedVolumeMounts(inspect));
+                            req.restartPolicyMaxRetryCount(), req.networks(), ContainerVolumeDTO.listFrom(inspect));
             currentId = recreateWithVolumes(inspect, effectiveReq, restartPolicy);
         } else {
             dockerClient.updateContainerCmd(id)
@@ -574,20 +570,9 @@ public class ContainerService {
         appRepository.save(app);
     }
 
-    private List<ContainerVolumeDTO> namedVolumeMounts(InspectContainerResponse inspect) {
-        List<ContainerVolumeDTO> volumes = new ArrayList<>();
-        if (inspect.getMounts() == null) return volumes;
-        for (InspectContainerResponse.Mount m : inspect.getMounts()) {
-            if (m.getName() == null || m.getDestination() == null) continue;
-            boolean readOnly = Boolean.FALSE.equals(m.getRW());
-            volumes.add(new ContainerVolumeDTO(m.getName(), m.getDestination().getPath(), readOnly));
-        }
-        return volumes;
-    }
-
     private boolean volumesDiffer(InspectContainerResponse inspect, List<ContainerVolumeDTO> desired) {
         Set<String> current = new HashSet<>();
-        for (ContainerVolumeDTO v : namedVolumeMounts(inspect)) {
+        for (ContainerVolumeDTO v : ContainerVolumeDTO.listFrom(inspect)) {
             current.add(v.volumeName() + "->" + v.target());
         }
         Set<String> requested = new HashSet<>();
@@ -610,7 +595,7 @@ public class ContainerService {
         if (!SUBDOMAIN_PATTERN.matcher(subdomain).matches()) {
             throw new IllegalArgumentException("Subdomain can only contain letters, numbers and hyphens");
         }
-        if (RESERVED_SUBDOMAINS.contains(subdomain.toLowerCase())) {
+        if (Arrays.asList(reservedSubdomains).contains(subdomain.toLowerCase())) {
             throw new IllegalArgumentException("'" + subdomain + "' is a reserved subdomain");
         }
         List<Container> containers = dockerClient.listContainersCmd().withShowAll(true).exec();
@@ -654,11 +639,11 @@ public class ContainerService {
                         .filter(p -> p.getProtocol() == InternetProtocol.TCP)
                         .mapToInt(ExposedPort::getPort)
                         .min()
-                        .orElse(DEFAULT_SUBDOMAIN_PORT);
+                        .orElse(defaultSubdomainPort);
             }
         } catch (RuntimeException ignored) {
         }
-        return DEFAULT_SUBDOMAIN_PORT;
+        return defaultSubdomainPort;
     }
 
     private long secondsToNanos(Integer seconds) {
@@ -758,11 +743,11 @@ public class ContainerService {
                 c.getId(),
                 name,
                 c.getImage(),
-                formatPorts(c.getPorts()),
+                ContainerDTO.formatPorts(c.getPorts()),
                 c.getStatus(),
                 c.getState(),
-                formatNetworks(c.getNetworkSettings().getNetworks().keySet().toArray(new String[0])),
-                formatMounts(c.getMounts().toArray(new ContainerMount[0])),
+                ContainerDTO.formatNetworks(c.getNetworkSettings().getNetworks().keySet().toArray(new String[0])),
+                ContainerDTO.formatMounts(c.getMounts().toArray(new ContainerMount[0])),
                 essential,
                 stackName,
                 containerFailureTracker.hasFailedRecently(c.getId()),
@@ -770,71 +755,4 @@ public class ContainerService {
         );
     }
 
-    private List<String> formatPorts(ContainerPort[] ports) {
-        List<String> responsePorts = new ArrayList<>();
-        if (ports != null) {
-            for (ContainerPort port : ports) {
-                String formatted = String.format("%d:%d/%s", port.getPublicPort(), port.getPrivatePort(), port.getType());
-                if (!responsePorts.contains(formatted)) {
-                    responsePorts.add(formatted);
-                }
-            }
-        }
-        return responsePorts;
-    }
-
-    private List<String> formatNetworks(String[] networks) {
-        List<String> responseNetworks = new ArrayList<>();
-        if (networks != null) {
-            for (String n : networks) {
-                if (!responseNetworks.contains(n)) {
-                    responseNetworks.add(n);
-                }
-            }
-        }
-        return responseNetworks;
-    }
-
-    private List<String> formatMounts(ContainerMount[] mounts) {
-        List<String> responseMounts = new ArrayList<>();
-        if (mounts != null) {
-            for (ContainerMount m : mounts) {
-                String formatted = String.format("mode:%s - %s:%s", m.getMode(), m.getSource(), m.getDestination());
-                if (!responseMounts.contains(formatted)) {
-                    responseMounts.add(formatted);
-                }
-            }
-        }
-        return responseMounts;
-    }
-
-    private ContainerStatsDTO mapToDTO(String id, Statistics s) {
-        // CPU %
-        long cpuDelta = s.getCpuStats().getCpuUsage().getTotalUsage()
-                - s.getPreCpuStats().getCpuUsage().getTotalUsage();
-        long systemDelta = s.getCpuStats().getSystemCpuUsage()
-                - s.getPreCpuStats().getSystemCpuUsage();
-        long numCpus = s.getCpuStats().getOnlineCpus();
-        double cpuPercent = (cpuDelta / (double) systemDelta) * 100.0 * numCpus;
-
-        // RAM %
-        long used = s.getMemoryStats().getUsage();
-        long limit = s.getMemoryStats().getLimit();
-        double memPercent = (used / (double) limit) * 100.0;
-
-        // Disco I/O (bytes leídos/escritos acumulados)
-        long blkRead = 0, blkWrite = 0;
-        for (var entry : s.getBlkioStats().getIoServiceBytesRecursive()) {
-            if ("Read".equalsIgnoreCase(entry.getOp()))  blkRead  += entry.getValue();
-            if ("Write".equalsIgnoreCase(entry.getOp())) blkWrite += entry.getValue();
-        }
-        return new ContainerStatsDTO(
-                id,
-                cpuPercent,
-                Math.round(memPercent * 10.0) / 10.0,
-                used, limit,
-                blkRead, blkWrite,
-                Instant.now()
-        );
-    }
 }
