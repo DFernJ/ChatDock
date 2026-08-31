@@ -113,7 +113,10 @@ To install ChatDock, follow these steps:
     `docker-compose up --build`
 
 
-4. Access the web service by navigating to the domain name you set up with Cloudflare in your web browser.
+4. Create an user with Admin Role in the database volume.
+
+
+5. Access the web service by navigating to the domain name you set up with Cloudflare in your web browser.
 
 # Operational configuration
 
