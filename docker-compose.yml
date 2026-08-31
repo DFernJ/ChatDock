@@ -3,7 +3,7 @@ services:
 # ─────────────── Database ───────────────
   mysql:
     image: mysql:9.7
-    container_name: essential-chat-ops-mysql
+    container_name: essential-chatdock-mysql
     restart: on-failure:5
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -28,7 +28,7 @@ services:
     build:
       context: ./core-api
       dockerfile: Dockerfile
-    container_name: essential-chat-ops-core
+    container_name: essential-chatdock-core
     restart: on-failure:5
     environment:
       CORE_API_PORT: ${CORE_API_PORT}
@@ -69,7 +69,7 @@ services:
     build:
       context: ./bot-service
       dockerfile: Dockerfile
-    container_name: essential-chat-ops-bot
+    container_name: essential-chatdock-bot
     restart: on-failure:5
     environment:
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
@@ -88,7 +88,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: essential-chat-ops-frontend
+    container_name: essential-chatdock-frontend
     restart: on-failure:5
     ports:
       - "127.0.0.1:5173:5173"
@@ -101,7 +101,7 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    container_name: essential-chat-ops-nginx
+    container_name: essential-chatdock-nginx
     restart: on-failure:5
     ports:
       - "80:80"
@@ -123,7 +123,7 @@ services:
   # ─────────────── Cloudflare Tunnel ───────────────
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: essential-chat-ops-cloudflared
+    container_name: essential-chatdock-cloudflared
     restart: on-failure:5
     command: tunnel run --token ${TUNNEL_TOKEN}
     depends_on:
@@ -135,16 +135,13 @@ services:
 networks:
   external-net:
     driver: bridge
-    name: chatops-external
-    ipam:
-      config:
-        - subnet: 172.19.0.0/16
+    name: chatdock-external
   internal-net:
     driver: bridge
-    name: chatops-internal
+    name: chatdock-internal
   apps-net:
     driver: bridge
-    name: chatops-apps
+    name: chatdock-apps
 
 # ─────────────── Volumes ───────────────
 volumes:
