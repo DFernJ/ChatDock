@@ -21,17 +21,21 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class NginxConfigService {
 
-    private static final Path APPS_CONF_DIR = Path.of("/etc/nginx/conf.d/apps");
-    private static final String NGINX_CONTAINER_NAME = "essential-chat-ops-nginx";
     private static final String TEMPLATE_RESOURCE = "/templates/nginx-imported-container.conf.template";
-    private static final String MAX_BODY_SIZE = "20m";
-    private static final long RELOAD_TIMEOUT_SECONDS = 10;
 
     @Autowired
     private DockerClient dockerClient;
 
     @Value("${app.cloudflare.base-domain}")
     private String baseDomain;
+    @Value("${app.nginx.apps-conf-dir}")
+    private String appsConfDir;
+    @Value("${app.nginx.container-name}")
+    private String nginxContainerName;
+    @Value("${app.nginx.max-body-size}")
+    private String maxBodySize;
+    @Value("${app.nginx.reload-timeout-seconds}")
+    private long reloadTimeoutSeconds;
 
     private volatile String template;
 
@@ -41,9 +45,9 @@ public class NginxConfigService {
                 .replace("{{ app-port }}", String.valueOf(port))
                 .replace("{{ subdomain }}", subdomain)
                 .replace("{{ base-domain }}", baseDomain)
-                .replace("{{ app-max-body-size }}", MAX_BODY_SIZE);
+                .replace("{{ app-max-body-size }}", maxBodySize);
         try {
-            Files.createDirectories(APPS_CONF_DIR);
+            Files.createDirectories(appsConfDirPath());
             Files.writeString(configPath(subdomain), content);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -60,8 +64,12 @@ public class NginxConfigService {
         reload();
     }
 
+    private Path appsConfDirPath() {
+        return Path.of(appsConfDir);
+    }
+
     private Path configPath(String subdomain) {
-        return APPS_CONF_DIR.resolve(subdomain + ".conf");
+        return appsConfDirPath().resolve(subdomain + ".conf");
     }
 
     private String loadTemplate() {
@@ -82,7 +90,7 @@ public class NginxConfigService {
 
     private void reload() {
         List<Container> matches = dockerClient.listContainersCmd()
-                .withNameFilter(List.of(NGINX_CONTAINER_NAME))
+                .withNameFilter(List.of(nginxContainerName))
                 .exec();
         if (matches.isEmpty()) {
             throw new IllegalStateException("Reverse proxy container not found, cannot reload Nginx");
@@ -108,7 +116,7 @@ public class NginxConfigService {
                             }
                         }
                     })
-                    .awaitCompletion(RELOAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    .awaitCompletion(reloadTimeoutSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while reloading Nginx", e);

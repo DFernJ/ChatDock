@@ -57,10 +57,6 @@ public class ProfileController {
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, Authentication authentication) {
         User current = currentUser(authentication);
         User updated = profileService.updateUsername(current.getId(), request.username());
-        if (updated == null) {
-            log.warn("Rejected username update for username={}: conflict", current.getUsername());
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
-        }
         log.info("Updated username for user id={} to username={}", current.getId(), updated.getUsername());
         return ResponseEntity.ok(ProfileResponse.from(updated));
     }
@@ -168,11 +164,5 @@ public class ProfileController {
 
     private User currentUser(Authentication authentication) {
         return (User) authentication.getPrincipal();
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
-        log.warn("Rejected request: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }
 }

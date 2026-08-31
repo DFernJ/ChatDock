@@ -55,6 +55,11 @@ app:
     sandbox-memory-bytes: 536870912
   ai:
     max-log-bytes: 10485760
+  nginx:
+    apps-conf-dir: /etc/nginx/conf.d/apps
+    container-name: essential-chat-ops-nginx
+    max-body-size: 20m
+    reload-timeout-seconds: 10
   oauth:
     github-state-cookie-ttl-minutes: 10
   discord:

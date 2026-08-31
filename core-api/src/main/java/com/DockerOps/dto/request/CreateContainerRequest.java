@@ -15,6 +15,8 @@ public record CreateContainerRequest(
         List<ContainerVolumeDTO> volumes,
         List<PortMappingDTO> ports,
         HealthcheckDTO healthcheck,
+        List<String> command,
+        List<String> entrypoint,
         List<SecretDraftDTO> secrets,
         String stackName
 ) {}

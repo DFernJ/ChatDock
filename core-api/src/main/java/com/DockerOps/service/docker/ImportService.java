@@ -7,6 +7,8 @@ import com.DockerOps.dto.request.DeployComposeRequest;
 import com.DockerOps.dto.request.PseudoDockerfileRequest;
 import com.DockerOps.dto.request.SecretDraftDTO;
 import com.DockerOps.dto.response.ComposeDeployResultDTO;
+import com.DockerOps.dto.response.ComposeNetworkDTO;
+import com.DockerOps.dto.response.ComposeParseResultDTO;
 import com.DockerOps.dto.response.ComposeServiceDTO;
 import com.DockerOps.dto.response.ImportResultDTO;
 import com.DockerOps.model.users.User;
@@ -45,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -54,6 +57,7 @@ public class ImportService {
     private static final Pattern UPLOAD_ID_PATTERN = Pattern.compile("^[0-9a-fA-F-]{36}$");
     private static final Pattern PROJECT_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9-]+$");
     private static final Pattern REPOSITORY_PATTERN = Pattern.compile("^[\\w.-]+/[\\w.-]+$");
+    private static final Pattern VAR_REFERENCE = Pattern.compile("\\$\\{([A-Za-z_][A-Za-z0-9_]*)(?:[:-][^}]*)?}|\\$([A-Za-z_][A-Za-z0-9_]*)");
 
     @Autowired
     private DockerClient dockerClient;
@@ -257,7 +261,7 @@ public class ImportService {
 
         if ("compose".equals(kind)) {
             Path composeFile = findComposeFile(contextDir);
-            List<ComposeServiceDTO> services = composeService.parse(composeFile, contextDir);
+            List<ComposeServiceDTO> services = composeService.parse(composeFile, contextDir).services();
             return new ManifestOutcome(new ImportResultDTO("compose", null, "Review the services below before deploying.", services), true);
         }
         return new ManifestOutcome(new ImportResultDTO("none", null, "No Dockerfile or docker-compose.yml found at the project root. Fill in the details below to build one.", null), true);
@@ -358,7 +362,8 @@ public class ImportService {
                 throw new IllegalArgumentException("A stack named '" + projectName + "' already exists");
             }
 
-            List<ComposeServiceDTO> allServices = composeService.parse(findComposeFile(contextDir), contextDir);
+            ComposeParseResultDTO parsed = composeService.parse(findComposeFile(contextDir), contextDir);
+            List<ComposeServiceDTO> allServices = parsed.services();
             Map<String, ComposeServiceDTO> byName = new HashMap<>();
             for (ComposeServiceDTO s : allServices) byName.put(s.name(), s);
 
@@ -378,15 +383,26 @@ public class ImportService {
             composeService.validateIncluded(allServices, included);
             List<String> order = composeService.topologicalOrder(allServices, included);
 
-            String networkName = projectName + "-net";
-            networkService.createNetwork(networkName, "bridge");
+            String defaultNetworkName = projectName + "-net";
+            networkService.createNetwork(defaultNetworkName, "bridge");
 
-            Set<String> volumeNames = new HashSet<>();
-            for (String name : included) {
-                for (ContainerVolumeDTO v : byName.get(name).volumes()) volumeNames.add(v.volumeName());
+            Map<String, String> resolvedNetworkNames = new HashMap<>();
+            for (ComposeNetworkDTO net : parsed.networks()) {
+                String dockerName = resolveNetworkDockerName(net, projectName);
+                resolvedNetworkNames.put(net.key(), dockerName);
+                if (!net.external()) {
+                    networkService.createNetwork(dockerName, net.driver() != null ? net.driver() : "bridge");
+                }
             }
-            for (String volumeName : volumeNames) {
-                volumeService.createVolume(volumeName, "local");
+
+            Map<String, String> resolvedVolumeNames = new HashMap<>();
+            for (String name : included) {
+                for (ContainerVolumeDTO v : byName.get(name).volumes()) {
+                    resolvedVolumeNames.computeIfAbsent(v.volumeName(), raw -> projectName + "-" + raw);
+                }
+            }
+            for (String dockerVolumeName : resolvedVolumeNames.values()) {
+                volumeService.createVolume(dockerVolumeName, "local");
             }
 
             List<String> createdContainers = new ArrayList<>();
@@ -394,12 +410,34 @@ public class ImportService {
                 ComposeServiceDTO service = byName.get(serviceName);
                 String image = service.image();
                 if (service.buildSubdir() != null) {
-                    image = buildComposeServiceImage(dir, contextDir, projectName, serviceName, service.buildSubdir());
+                    image = buildComposeServiceImage(dir, contextDir, projectName, serviceName, service.buildSubdir(), service.dockerfile());
                 }
 
                 ComposeServiceOverride override = req.services().get(serviceName);
                 List<SecretDraftDTO> secrets = override != null && override.secrets() != null ? override.secrets() : service.secrets();
                 String containerName = projectName + "-" + serviceName;
+
+                Map<String, String> secretValues = new HashMap<>();
+                for (SecretDraftDTO s : secrets) {
+                    if (s.name() != null) secretValues.put(s.name(), s.value() != null ? s.value() : "");
+                }
+                List<String> resolvedCommand = substituteVars(service.command(), secretValues);
+                List<String> resolvedEntrypoint = substituteVars(service.entrypoint(), secretValues);
+
+                List<ContainerVolumeDTO> resolvedVolumes = new ArrayList<>();
+                for (ContainerVolumeDTO v : service.volumes()) {
+                    resolvedVolumes.add(new ContainerVolumeDTO(resolvedVolumeNames.get(v.volumeName()), v.target(), v.readOnly()));
+                }
+
+                List<String> serviceNetworks;
+                if (service.networks() != null && !service.networks().isEmpty()) {
+                    serviceNetworks = new ArrayList<>();
+                    for (String netKey : service.networks()) {
+                        serviceNetworks.add(resolvedNetworkNames.get(netKey));
+                    }
+                } else {
+                    serviceNetworks = List.of(defaultNetworkName);
+                }
 
                 CreateContainerRequest createReq = new CreateContainerRequest(
                         image,
@@ -407,11 +445,13 @@ public class ImportService {
                         override != null ? override.subdomain() : null,
                         override != null && override.stdin(),
                         service.restartPolicy(),
-                        null,
-                        List.of(networkName),
-                        service.volumes(),
+                        service.restartPolicyMaxRetryCount(),
+                        serviceNetworks,
+                        resolvedVolumes,
                         service.ports(),
-                        null,
+                        service.healthcheck(),
+                        resolvedCommand,
+                        resolvedEntrypoint,
                         secrets,
                         projectName
                 );
@@ -426,20 +466,23 @@ public class ImportService {
         }
     }
 
-    private String buildComposeServiceImage(Path dir, Path contextDir, String projectName, String serviceName, String buildSubdir) {
+    private String buildComposeServiceImage(Path dir, Path contextDir, String projectName, String serviceName, String buildSubdir, String dockerfileName) {
         Path buildContext = contextDir.resolve(buildSubdir).normalize();
         if (!buildContext.startsWith(contextDir.normalize())) {
             throw new IllegalArgumentException("Build context escapes the uploaded project for service '" + serviceName + "'");
         }
-        String tag = "chatops/" + projectName + "-" + serviceName + "-" + UUID.randomUUID().toString().substring(0, 8) + ":latest";
+        String tag = ("chatops/" + projectName + "-" + serviceName + "-" + UUID.randomUUID().toString().substring(0, 8) + ":latest").toLowerCase();
         Path tarPath = dir.resolve(serviceName + "-build.tar");
         try {
             CompressArchiveUtil.tar(buildContext, tarPath, false, true);
             try (InputStream tarStream = Files.newInputStream(tarPath)) {
-                dockerClient.buildImageCmd()
+                var buildCmd = dockerClient.buildImageCmd()
                         .withTarInputStream(tarStream)
-                        .withTags(Set.of(tag))
-                        .exec(new BuildImageResultCallback())
+                        .withTags(Set.of(tag));
+                if (dockerfileName != null && !dockerfileName.isBlank()) {
+                    buildCmd = buildCmd.withDockerfilePath(dockerfileName.trim());
+                }
+                buildCmd.exec(new BuildImageResultCallback())
                         .awaitImageId(buildTimeoutSeconds, TimeUnit.SECONDS);
             }
         } catch (IOException e) {
@@ -451,6 +494,33 @@ public class ImportService {
             }
         }
         return tag;
+    }
+
+    private String resolveNetworkDockerName(ComposeNetworkDTO net, String projectName) {
+        if (net.name() != null && !net.name().isBlank()) return net.name().trim();
+        if (net.external()) return net.key();
+        return projectName + "-" + net.key();
+    }
+
+    private List<String> substituteVars(List<String> tokens, Map<String, String> values) {
+        if (tokens == null) return null;
+        List<String> result = new ArrayList<>();
+        for (String token : tokens) {
+            if (token == null) {
+                result.add(null);
+                continue;
+            }
+            Matcher m = VAR_REFERENCE.matcher(token);
+            StringBuilder sb = new StringBuilder();
+            while (m.find()) {
+                String varName = m.group(1) != null ? m.group(1) : m.group(2);
+                String replacement = values.getOrDefault(varName, m.group(0));
+                m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            }
+            m.appendTail(sb);
+            result.add(sb.toString());
+        }
+        return result;
     }
 
     private String jsonEscape(String s) {

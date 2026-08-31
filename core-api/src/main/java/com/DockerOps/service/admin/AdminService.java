@@ -3,6 +3,8 @@ package com.DockerOps.service.admin;
 import com.DockerOps.dto.request.CreateUserRequest;
 import com.DockerOps.dto.request.GenerateCodeRequest;
 import com.DockerOps.dto.request.UpdateUserRequest;
+import com.DockerOps.exception.ConflictException;
+import com.DockerOps.exception.NotFoundException;
 import com.DockerOps.model.users.Code;
 import com.DockerOps.model.users.User;
 import com.DockerOps.model.users.enums.CodeType;
@@ -43,7 +45,7 @@ public class AdminService {
 
     public User createUser(CreateUserRequest request) {
         if (userRepository.existsByUsername(request.username()) || userRepository.existsByEmail(request.email())) {
-            return null;
+            throw new ConflictException("Username or email already in use.");
         }
         User user = User.builder()
                 .username(request.username())
@@ -57,31 +59,30 @@ public class AdminService {
     }
 
     public User updateUser(UUID id, UpdateUserRequest request) {
-        return userRepository.findById(id).map(user -> {
-            if (request.enabled() != null) {
-                user.setEnabled(request.enabled());
-            }
-            if (request.authRole() != null) {
-                user.setAuthRole(UserAuthRole.valueOf(request.authRole().toUpperCase()));
-            }
-            if (request.permissionRole() != null) {
-                user.setPermissions(UserPermissions.valueOf(request.permissionRole().toUpperCase()));
-            }
-            return userRepository.save(user);
-        }).orElse(null);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("User not found."));
+        if (request.enabled() != null) {
+            user.setEnabled(request.enabled());
+        }
+        if (request.authRole() != null) {
+            user.setAuthRole(UserAuthRole.valueOf(request.authRole().toUpperCase()));
+        }
+        if (request.permissionRole() != null) {
+            user.setPermissions(UserPermissions.valueOf(request.permissionRole().toUpperCase()));
+        }
+        return userRepository.save(user);
     }
 
     @Transactional
-    public boolean deleteUser(UUID id, User newOwner) {
+    public void deleteUser(UUID id, User newOwner) {
         if (!userRepository.existsById(id)) {
-            return false;
+            throw new NotFoundException("User not found.");
         }
         User user = userRepository.getReferenceById(id);
         appRepository.reassignOwner(user, newOwner);
         appStackRepository.reassignOwner(user, newOwner);
         codeRepository.deleteByUser(user);
         userRepository.deleteById(id);
-        return true;
     }
 
     public List<Code> listCodes() {
@@ -106,11 +107,10 @@ public class AdminService {
         return codeRepository.save(code);
     }
 
-    public boolean deleteCode(UUID id) {
+    public void deleteCode(UUID id) {
         if (!codeRepository.existsById(id)) {
-            return false;
+            throw new NotFoundException("Registration code not found.");
         }
         codeRepository.deleteById(id);
-        return true;
     }
 }

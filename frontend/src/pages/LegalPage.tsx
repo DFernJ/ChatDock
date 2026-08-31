@@ -67,8 +67,8 @@ export default function LegalPage() {
                             <p>
                                 ChatOps is a self-hosted Docker operations platform. This instance is operated by its
                                 administrator ("we", "us", "the operator"), under the project maintained at{" "}
-                                <a href="https://github.com/DFernJ/TFG" className="text-accent border-b border-dashed border-accent-line">
-                                    github.com/DFernJ/TFG
+                                <a href="https://github.com/DFernJ/ChatDock" className="text-accent border-b border-dashed border-accent-line">
+                                    github.com/DFernJ/ChatDock
                                 </a>. For any question about this policy or your data, see{" "}
                                 <a href="#contact" className="text-accent border-b border-dashed border-accent-line">Contact</a> below.
                             </p>
@@ -196,8 +196,8 @@ export default function LegalPage() {
                         <SectionText id="contact" index="14" title="Contact">
                             <p>
                                 For any privacy-related question, open an issue at{" "}
-                                <a href="https://github.com/DFernJ/TFG/issues" className="text-accent border-b border-dashed border-accent-line">
-                                    github.com/DFernJ/TFG/issues
+                                <a href="https://github.com/DFernJ/ChatDock/issues" className="text-accent border-b border-dashed border-accent-line">
+                                    github.com/DFernJ/ChatDock/issues
                                 </a>{" "}or contact the administrator who provisioned your account.
                             </p>
                         </SectionText>

@@ -1,5 +1,6 @@
 package com.DockerOps.service.profile;
 
+import com.DockerOps.exception.ConflictException;
 import com.DockerOps.model.users.Code;
 import com.DockerOps.model.users.User;
 import com.DockerOps.model.users.enums.CodeType;
@@ -42,7 +43,7 @@ public class ProfileService {
         }
         User user = userRepository.findById(userId).orElseThrow();
         if (!username.equals(user.getUsername()) && userRepository.existsByUsername(username)) {
-            return null;
+            throw new ConflictException("Username already taken.");
         }
         user.setUsername(username);
         return userRepository.save(user);

@@ -57,10 +57,6 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Registration code is required.");
         }
         User user = authService.registerUser(request);
-        if (user == null) {
-            log.warn("Rejected registration for email={}: conflict", request.email());
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
         if (!user.isEnabled()) {
             log.warn("Rejected registration for email={}: account disabled", request.email());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -93,11 +89,5 @@ public class AuthController {
         } catch (JwtException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
-        log.warn("Rejected request: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }
 }

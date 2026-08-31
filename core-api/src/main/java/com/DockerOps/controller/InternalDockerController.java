@@ -9,11 +9,7 @@ import com.DockerOps.service.ai.AiDiagnosisService;
 import com.DockerOps.service.docker.ContainerService;
 import com.DockerOps.service.profile.ProfileService;
 import com.DockerOps.util.InternalHeader;
-import com.github.dockerjava.api.exception.DockerClientException;
-import com.github.dockerjava.api.exception.DockerException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.retry.NonTransientAiException;
-import org.springframework.ai.retry.TransientAiException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -163,29 +159,5 @@ public class InternalDockerController {
         if (user.getPermissions().ordinal() < required.ordinal()) {
             throw new IllegalArgumentException("You don't have permission to perform this action.");
         }
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
-        log.warn("Rejected request: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-    }
-
-    @ExceptionHandler(DockerException.class)
-    public ResponseEntity<String> handleDockerException(DockerException e) {
-        log.error("Docker API error", e);
-        return ResponseEntity.status(e.getHttpStatus()).body(e.getMessage());
-    }
-
-    @ExceptionHandler(DockerClientException.class)
-    public ResponseEntity<String> handleDockerClientException(DockerClientException e) {
-        log.error("Docker client error", e);
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Docker client error: " + e.getMessage());
-    }
-
-    @ExceptionHandler({NonTransientAiException.class, TransientAiException.class})
-    public ResponseEntity<String> handleAiClientException(RuntimeException e) {
-        log.error("AI diagnosis failed", e);
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("AI diagnosis failed: " + e.getMessage());
     }
 }

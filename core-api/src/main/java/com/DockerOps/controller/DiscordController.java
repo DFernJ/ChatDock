@@ -50,10 +50,4 @@ public class DiscordController {
                 .map(user -> ResponseEntity.ok(UserResponse.from(user)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
-        log.warn("Rejected request: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-    }
 }

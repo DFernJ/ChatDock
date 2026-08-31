@@ -6,6 +6,7 @@ import com.DockerOps.dto.image.ImageDTO;
 import com.DockerOps.dto.network.NetworkDTO;
 import com.DockerOps.dto.response.StackResponse;
 import com.DockerOps.dto.volume.VolumeDTO;
+import com.DockerOps.service.apps.AppStackService;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,8 @@ public class DockerStateStreamService {
 
     @Autowired
     private ContainerService containerService;
+    @Autowired
+    private AppStackService appStackService;
     @Autowired
     private VolumeService volumeService;
     @Autowired
@@ -86,7 +89,7 @@ public class DockerStateStreamService {
     private DockerState collectState() {
         return new DockerState(
                 containerService.listContainers(),
-                containerService.listStacks(),
+                appStackService.listStacks(),
                 containerService.listStats(),
                 volumeService.listVolumes(),
                 networkService.listNetworks(),

@@ -10,12 +10,9 @@ import com.DockerOps.dto.response.ImportResultDTO;
 import com.DockerOps.model.users.User;
 import com.DockerOps.service.docker.ImportService;
 import com.DockerOps.service.profile.GitHubOAuthService;
-import com.github.dockerjava.api.exception.DockerClientException;
-import com.github.dockerjava.api.exception.DockerException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -101,23 +98,5 @@ public class ImportController {
 
     private User currentUser(Authentication authentication) {
         return (User) authentication.getPrincipal();
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
-        log.warn("Rejected request: {}", e.getMessage());
-        return ResponseEntity.badRequest().body(e.getMessage());
-    }
-
-    @ExceptionHandler(DockerException.class)
-    public ResponseEntity<String> handleDockerException(DockerException e) {
-        log.error("Docker API error", e);
-        return ResponseEntity.status(e.getHttpStatus()).body(e.getMessage());
-    }
-
-    @ExceptionHandler(DockerClientException.class)
-    public ResponseEntity<String> handleDockerClientException(DockerClientException e) {
-        log.error("Docker client error", e);
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Docker client error: " + e.getMessage());
     }
 }

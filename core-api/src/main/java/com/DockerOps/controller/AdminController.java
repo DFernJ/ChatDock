@@ -29,14 +29,14 @@ public class AdminController {
     @Autowired
     private AdminService adminService;
 
-    @PreAuthorize("hasAuthority('PERM_ROOT')")
+    @PreAuthorize("hasAuthority('PERM_ROOT') and hasAuthority('ROLE_ADMIN')")
     @GetMapping("/users")
     public List<AdminUserResponse> listUsers() {
         log.info("Listing users");
         return adminService.listUsers().stream().map(AdminUserResponse::from).toList();
     }
 
-    @PreAuthorize("hasAuthority('PERM_ROOT')")
+    @PreAuthorize("hasAuthority('PERM_ROOT') and hasAuthority('ROLE_ADMIN')")
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@RequestBody CreateUserRequest request) {
         if (request.password() == null || request.password().length() < MIN_PASSWORD_LENGTH) {
@@ -44,15 +44,11 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Password must be at least " + MIN_PASSWORD_LENGTH + " characters.");
         }
         User user = adminService.createUser(request);
-        if (user == null) {
-            log.warn("Rejected user creation for username={}: conflict", request.username());
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
         log.info("Created user id={}, username={}", user.getId(), user.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(AdminUserResponse.from(user));
     }
 
-    @PreAuthorize("hasAuthority('PERM_ROOT')")
+    @PreAuthorize("hasAuthority('PERM_ROOT') and hasAuthority('ROLE_ADMIN')")
     @PatchMapping("/users/{id}")
     public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestBody UpdateUserRequest request, Authentication authentication) {
         if (isSelf(id, authentication)) {
@@ -60,15 +56,11 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Cannot modify your own account");
         }
         User updated = adminService.updateUser(id, request);
-        if (updated == null) {
-            log.warn("Rejected update for user id={}: not found", id);
-            return ResponseEntity.notFound().build();
-        }
         log.info("Updated user id={}", id);
         return ResponseEntity.ok(AdminUserResponse.from(updated));
     }
 
-    @PreAuthorize("hasAuthority('PERM_ROOT')")
+    @PreAuthorize("hasAuthority('PERM_ROOT') and hasAuthority('ROLE_ADMIN')")
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable UUID id, Authentication authentication) {
         if (isSelf(id, authentication)) {
@@ -76,22 +68,19 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Cannot delete your own account");
         }
         User admin = (User) authentication.getPrincipal();
-        if (!adminService.deleteUser(id, admin)) {
-            log.warn("Rejected deletion for user id={}: not found", id);
-            return ResponseEntity.notFound().build();
-        }
+        adminService.deleteUser(id, admin);
         log.info("Deleted user id={}", id);
         return ResponseEntity.noContent().build();
     }
 
-    @PreAuthorize("hasAuthority('PERM_ROOT')")
+    @PreAuthorize("hasAuthority('PERM_ROOT') and hasAuthority('ROLE_ADMIN')")
     @GetMapping("/codes")
     public List<CodeResponse> listCodes() {
         log.info("Listing registration codes");
         return adminService.listCodes().stream().map(CodeResponse::from).toList();
     }
 
-    @PreAuthorize("hasAuthority('PERM_ROOT')")
+    @PreAuthorize("hasAuthority('PERM_ROOT') and hasAuthority('ROLE_ADMIN')")
     @PostMapping("/codes")
     public ResponseEntity<?> generateCode(@RequestBody GenerateCodeRequest request, Authentication authentication) {
         User issuer = (User) authentication.getPrincipal();
@@ -100,24 +89,15 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(CodeResponse.from(code));
     }
 
-    @PreAuthorize("hasAuthority('PERM_ROOT')")
+    @PreAuthorize("hasAuthority('PERM_ROOT') and hasAuthority('ROLE_ADMIN')")
     @DeleteMapping("/codes/{id}")
     public ResponseEntity<?> deleteCode(@PathVariable UUID id) {
-        if (!adminService.deleteCode(id)) {
-            log.warn("Rejected deletion for code id={}: not found", id);
-            return ResponseEntity.notFound().build();
-        }
+        adminService.deleteCode(id);
         log.info("Deleted registration code id={}", id);
         return ResponseEntity.noContent().build();
     }
 
     private boolean isSelf(UUID id, Authentication authentication) {
         return ((User) authentication.getPrincipal()).getId().equals(id);
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleIllegalArgument(IllegalArgumentException e) {
-        log.warn("Rejected request: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }
 }

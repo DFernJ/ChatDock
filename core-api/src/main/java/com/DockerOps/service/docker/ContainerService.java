@@ -7,22 +7,15 @@ import com.DockerOps.dto.container.ContainerVolumeDTO;
 import com.DockerOps.dto.request.AssignContainerRequest;
 import com.DockerOps.dto.request.CreateAppSecretRequest;
 import com.DockerOps.dto.request.CreateContainerRequest;
-import com.DockerOps.dto.request.CreateStackRequest;
 import com.DockerOps.dto.request.PortMappingDTO;
 import com.DockerOps.dto.request.HealthcheckDTO;
 import com.DockerOps.dto.request.SecretDraftDTO;
-import com.DockerOps.dto.request.UpdateAppSecretRequest;
 import com.DockerOps.dto.request.UpdateContainerRequest;
-import com.DockerOps.dto.response.AppSecretResponse;
-import com.DockerOps.dto.response.AppSummaryResponse;
-import com.DockerOps.dto.response.StackResponse;
 import com.DockerOps.model.apps.App;
-import com.DockerOps.model.apps.AppSecret;
-import com.DockerOps.model.apps.AppStack;
 import com.DockerOps.model.users.User;
 import com.DockerOps.repository.apps.AppRepository;
-import com.DockerOps.repository.apps.AppSecretRepository;
-import com.DockerOps.repository.apps.AppStackRepository;
+import com.DockerOps.service.apps.AppSecretService;
+import com.DockerOps.service.apps.AppStackService;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerCmd;
@@ -68,9 +61,9 @@ public class ContainerService {
     @Autowired
     private AppRepository appRepository;
     @Autowired
-    private AppSecretRepository appSecretRepository;
+    private AppStackService appStackService;
     @Autowired
-    private AppStackRepository appStackRepository;
+    private AppSecretService appSecretService;
     @Autowired
     private NetworkService networkService;
     @Autowired
@@ -308,6 +301,13 @@ public class ContainerService {
         }
         createCmd = createCmd.withLabels(labels);
 
+        if (req.command() != null && !req.command().isEmpty()) {
+            createCmd = createCmd.withCmd(req.command());
+        }
+        if (req.entrypoint() != null && !req.entrypoint().isEmpty()) {
+            createCmd = createCmd.withEntrypoint(req.entrypoint());
+        }
+
         if (req.secrets() != null && !req.secrets().isEmpty()) {
             List<String> env = req.secrets().stream()
                     .filter(s -> s.name() != null && !s.name().isBlank())
@@ -323,6 +323,9 @@ public class ContainerService {
                     .withInterval(secondsToNanos(hc.intervalSeconds()))
                     .withTimeout(secondsToNanos(hc.timeoutSeconds()))
                     .withRetries(hc.retries() != null ? hc.retries() : 0);
+            if (hc.startPeriodSeconds() != null) {
+                healthCheck.withStartPeriod(secondsToNanos(hc.startPeriodSeconds()));
+            }
             createCmd = createCmd.withHealthcheck(healthCheck);
         }
 
@@ -341,11 +344,11 @@ public class ContainerService {
         dockerClient.startContainerCmd(containerId).exec();
 
         if (resolvedStackName != null) {
-            assignContainer(containerId, new AssignContainerRequest(req.name().trim(), resolvedStackName), owner);
+            appStackService.assignContainer(containerId, new AssignContainerRequest(req.name().trim(), resolvedStackName), owner);
             if (req.secrets() != null) {
                 for (SecretDraftDTO secret : req.secrets()) {
                     if (secret.name() == null || secret.name().isBlank()) continue;
-                    createSecret(containerId, new CreateAppSecretRequest(secret.name().trim(), secret.value()));
+                    appSecretService.createSecret(containerId, new CreateAppSecretRequest(secret.name().trim(), secret.value()));
                 }
             }
         }
@@ -406,63 +409,6 @@ public class ContainerService {
                 .orElseThrow(() -> new RuntimeException("Container not found after update"));
     }
 
-    public List<AppSecretResponse> listSecrets(String containerId) {
-        App app = resolveApp(containerId);
-        return appSecretRepository.findByApp_Id(app.getId()).stream()
-                .map(AppSecretResponse::from)
-                .toList();
-    }
-
-    public AppSecretResponse createSecret(String containerId, CreateAppSecretRequest req) {
-        App app = resolveApp(containerId);
-        if (req.secretName() == null || req.secretName().isBlank()) {
-            throw new IllegalArgumentException("Secret name is required");
-        }
-        if (req.secretValue() == null || req.secretValue().isBlank()) {
-            throw new IllegalArgumentException("Secret value is required");
-        }
-        boolean exists = appSecretRepository.findByApp_Id(app.getId()).stream()
-                .anyMatch(s -> s.getSecretName().equalsIgnoreCase(req.secretName()));
-        if (exists) {
-            throw new IllegalArgumentException("A secret named '" + req.secretName() + "' already exists for this container");
-        }
-        AppSecret secret = AppSecret.builder()
-                .id(UUID.randomUUID())
-                .secretName(req.secretName())
-                .secretValue(req.secretValue())
-                .app(app)
-                .build();
-        return AppSecretResponse.from(appSecretRepository.save(secret));
-    }
-
-    public AppSecretResponse updateSecret(String containerId, UUID secretId, UpdateAppSecretRequest req) {
-        App app = resolveApp(containerId);
-        if (req.secretValue() == null || req.secretValue().isBlank()) {
-            throw new IllegalArgumentException("Secret value is required");
-        }
-        AppSecret secret = appSecretRepository.findById(secretId)
-                .filter(s -> s.getApp().getId().equals(app.getId()))
-                .orElseThrow(() -> new IllegalArgumentException("Secret not found for this container"));
-        secret.setSecretValue(req.secretValue());
-        return AppSecretResponse.from(appSecretRepository.save(secret));
-    }
-
-    public void deleteSecret(String containerId, UUID secretId) {
-        App app = resolveApp(containerId);
-        AppSecret secret = appSecretRepository.findById(secretId)
-                .filter(s -> s.getApp().getId().equals(app.getId()))
-                .orElseThrow(() -> new IllegalArgumentException("Secret not found for this container"));
-        appSecretRepository.delete(secret);
-    }
-
-    public String getSecretValue(String containerId, UUID secretId) {
-        App app = resolveApp(containerId);
-        AppSecret secret = appSecretRepository.findById(secretId)
-                .filter(s -> s.getApp().getId().equals(app.getId()))
-                .orElseThrow(() -> new IllegalArgumentException("Secret not found for this container"));
-        return secret.getSecretValue();
-    }
-
     public Optional<App> findLinkedApp(String containerId) {
         InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
         String name = inspect.getName().replace("/", "");
@@ -470,104 +416,6 @@ public class ContainerService {
             return Optional.empty();
         }
         return appRepository.findByContainerName(name);
-    }
-
-    private App resolveApp(String containerId) {
-        InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
-        String name = inspect.getName().replace("/", "");
-        if (name.startsWith(ESSENTIAL_CONTAINER_PREFIX)) {
-            throw new IllegalArgumentException("Essential containers don't have secrets");
-        }
-        return appRepository.findByContainerName(name)
-                .orElseThrow(() -> new IllegalArgumentException("This container isn't linked to a managed app yet — secrets aren't available"));
-    }
-
-    public List<StackResponse> listStacks() {
-        return appStackRepository.findAll().stream()
-                .map(stack -> StackResponse.from(stack, appRepository.findByStack_Id(stack.getId()).size()))
-                .toList();
-    }
-
-    public StackResponse createStack(CreateStackRequest req, User owner) {
-        if (req.stackName() == null || req.stackName().isBlank()) {
-            throw new IllegalArgumentException("Stack name is required");
-        }
-        if (appStackRepository.findByStackNameIgnoreCase(req.stackName()).isPresent()) {
-            throw new IllegalArgumentException("A stack named '" + req.stackName() + "' already exists");
-        }
-        AppStack stack = AppStack.builder()
-                .stackName(req.stackName())
-                .owner(owner)
-                .build();
-        return StackResponse.from(appStackRepository.save(stack), 0);
-    }
-
-    public StackResponse renameStack(UUID stackId, CreateStackRequest req) {
-        if (req.stackName() == null || req.stackName().isBlank()) {
-            throw new IllegalArgumentException("Stack name is required");
-        }
-        AppStack stack = appStackRepository.findById(stackId)
-                .orElseThrow(() -> new IllegalArgumentException("Stack not found"));
-        if (!stack.getStackName().equalsIgnoreCase(req.stackName())
-                && appStackRepository.findByStackNameIgnoreCase(req.stackName()).isPresent()) {
-            throw new IllegalArgumentException("A stack named '" + req.stackName() + "' already exists");
-        }
-        stack.setStackName(req.stackName());
-        AppStack saved = appStackRepository.save(stack);
-        return StackResponse.from(saved, appRepository.findByStack_Id(saved.getId()).size());
-    }
-
-    public void deleteStack(UUID stackId) {
-        AppStack stack = appStackRepository.findById(stackId)
-                .orElseThrow(() -> new IllegalArgumentException("Stack not found"));
-        if (!appRepository.findByStack_Id(stackId).isEmpty()) {
-            throw new IllegalArgumentException("Remove all apps from this stack before deleting it");
-        }
-        appStackRepository.delete(stack);
-    }
-
-    public List<AppSummaryResponse> listAppsForStack(UUID stackId) {
-        return appRepository.findByStack_Id(stackId).stream()
-                .map(AppSummaryResponse::from)
-                .toList();
-    }
-
-    public void removeApp(UUID stackId, UUID appId) {
-        App app = appRepository.findByIdAndStack_Id(appId, stackId)
-                .orElseThrow(() -> new IllegalArgumentException("App not found in this stack"));
-        appRepository.delete(app);
-    }
-
-    public void assignContainer(String containerId, AssignContainerRequest req, User owner) {
-        InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
-        String name = inspect.getName().replace("/", "");
-        if (name.startsWith(ESSENTIAL_CONTAINER_PREFIX)) {
-            throw new IllegalArgumentException("Essential containers can't be assigned to a stack");
-        }
-        if (appRepository.findByContainerName(name).isPresent()) {
-            throw new IllegalArgumentException("This container is already assigned to a stack");
-        }
-        if (req.appName() == null || req.appName().isBlank()) {
-            throw new IllegalArgumentException("App name is required");
-        }
-        if (appRepository.existsByName(req.appName())) {
-            throw new IllegalArgumentException("An app named '" + req.appName() + "' already exists");
-        }
-        if (req.stackName() == null || req.stackName().isBlank()) {
-            throw new IllegalArgumentException("Stack name is required");
-        }
-        AppStack stack = appStackRepository.findByStackNameIgnoreCase(req.stackName())
-                .orElseGet(() -> appStackRepository.save(
-                        AppStack.builder().stackName(req.stackName()).owner(owner).build()
-                ));
-        App app = App.builder()
-                .id(UUID.randomUUID())
-                .name(req.appName())
-                .containerName(name)
-                .stack(stack)
-                .appOwner(owner)
-                .build();
-        appRepository.save(app);
     }
 
     private boolean volumesDiffer(InspectContainerResponse inspect, List<ContainerVolumeDTO> desired) {

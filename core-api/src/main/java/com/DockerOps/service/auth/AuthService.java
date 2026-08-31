@@ -1,6 +1,7 @@
 package com.DockerOps.service.auth;
 
 import com.DockerOps.dto.request.RegisterRequest;
+import com.DockerOps.exception.ConflictException;
 import com.DockerOps.model.users.Code;
 import com.DockerOps.model.users.User;
 import com.DockerOps.model.users.enums.CodeType;
@@ -35,7 +36,7 @@ public class AuthService {
     public User registerUser(RegisterRequest registerRequest) {
         if (userRepository.existsByUsername(registerRequest.username()) ||
                 userRepository.existsByEmail(registerRequest.email())) {
-            return null;
+            throw new ConflictException("Username or email already in use.");
         }
 
         Code code = codeRepository.findByCode(registerRequest.code())
@@ -46,8 +47,8 @@ public class AuthService {
                 .username(registerRequest.username())
                 .email(registerRequest.email())
                 .password_hash(passwordEncoder.encode(registerRequest.password()))
-                .authRole(registerRequest.userAuthRole() != null ? registerRequest.userAuthRole() : UserAuthRole.USER)
-                .permissions(registerRequest.userPermissions() != null ? registerRequest.userPermissions() : UserPermissions.VIEWER)
+                .authRole(UserAuthRole.USER)
+                .permissions(UserPermissions.VIEWER)
                 .enabled(true)
                 .build();
         user.setCreatedBy(code.getUser().getId());

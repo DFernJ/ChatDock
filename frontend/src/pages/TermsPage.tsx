@@ -173,8 +173,8 @@ export default function TermsPage() {
                         <SectionText id="contact" index="13" title="Contact">
                             <p>
                                 For any question about these terms, open an issue at{" "}
-                                <a href="https://github.com/DFernJ/TFG/issues" className="text-accent border-b border-dashed border-accent-line">
-                                    github.com/DFernJ/TFG/issues
+                                <a href="https://github.com/DFernJ/ChatDock/issues" className="text-accent border-b border-dashed border-accent-line">
+                                    github.com/DFernJ/ChatDock/issues
                                 </a>{" "}or contact the administrator who provisioned your account.
                             </p>
                         </SectionText>
