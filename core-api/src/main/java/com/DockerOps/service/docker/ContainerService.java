@@ -12,8 +12,10 @@ import com.DockerOps.dto.request.HealthcheckDTO;
 import com.DockerOps.dto.request.SecretDraftDTO;
 import com.DockerOps.dto.request.UpdateContainerRequest;
 import com.DockerOps.model.apps.App;
+import com.DockerOps.model.apps.AppSecret;
 import com.DockerOps.model.users.User;
 import com.DockerOps.repository.apps.AppRepository;
+import com.DockerOps.repository.apps.AppSecretRepository;
 import com.DockerOps.service.apps.AppSecretService;
 import com.DockerOps.service.apps.AppStackService;
 import com.github.dockerjava.api.DockerClient;
@@ -64,6 +66,8 @@ public class ContainerService {
     private AppStackService appStackService;
     @Autowired
     private AppSecretService appSecretService;
+    @Autowired
+    private AppSecretRepository appSecretRepository;
     @Autowired
     private NetworkService networkService;
     @Autowired
@@ -409,6 +413,27 @@ public class ContainerService {
                 .orElseThrow(() -> new RuntimeException("Container not found after update"));
     }
 
+    public ContainerDTO recreateForSecretsChange(String containerId) {
+        InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
+        String name = inspect.getName().replace("/", "");
+        if (name.startsWith(ESSENTIAL_CONTAINER_PREFIX)) {
+            throw new IllegalArgumentException("Essential containers can't be edited");
+        }
+        App app = appRepository.findByContainerName(name)
+                .orElseThrow(() -> new IllegalArgumentException("This container isn't linked to a managed app yet"));
+
+        List<String> secretEnv = appSecretRepository.findByApp_Id(app.getId()).stream()
+                .map(s -> s.getSecretName() + "=" + s.getSecretValue())
+                .toList();
+
+        String newId = recreateContainer(inspect, inspect.getHostConfig(), secretEnv);
+
+        return listContainers().stream()
+                .filter(c -> c.id().equals(newId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Container not found after update"));
+    }
+
     public Optional<App> findLinkedApp(String containerId) {
         InspectContainerResponse inspect = dockerClient.inspectContainerCmd(containerId).exec();
         String name = inspect.getName().replace("/", "");
@@ -523,10 +548,6 @@ public class ContainerService {
     }
 
     private String recreateWithVolumes(InspectContainerResponse inspect, UpdateContainerRequest req, RestartPolicy restartPolicy) {
-        String originalId = inspect.getId();
-        String originalName = inspect.getName().replace("/", "");
-        boolean wasRunning = Boolean.TRUE.equals(inspect.getState().getRunning());
-
         List<Bind> binds = new ArrayList<>();
         if (inspect.getMounts() != null) {
             for (InspectContainerResponse.Mount m : inspect.getMounts()) {
@@ -547,6 +568,15 @@ public class ContainerService {
         if (req.nanoCPUs() != null) hostConfig.withNanoCPUs(req.nanoCPUs());
         if (restartPolicy != null) hostConfig.withRestartPolicy(restartPolicy);
 
+        List<String> env = inspect.getConfig().getEnv() != null ? Arrays.asList(inspect.getConfig().getEnv()) : List.of();
+        return recreateContainer(inspect, hostConfig, env);
+    }
+
+    private String recreateContainer(InspectContainerResponse inspect, HostConfig hostConfig, List<String> env) {
+        String originalId = inspect.getId();
+        String originalName = inspect.getName().replace("/", "");
+        boolean wasRunning = Boolean.TRUE.equals(inspect.getState().getRunning());
+
         if (wasRunning) {
             stopContainer(originalId);
         }
@@ -559,10 +589,10 @@ public class ContainerService {
         try {
             CreateContainerCmd createCmd = dockerClient.createContainerCmd(config.getImage())
                     .withName(originalName)
-                    .withHostConfig(hostConfig);
+                    .withHostConfig(hostConfig)
+                    .withEnv(env);
             if (config.getCmd() != null) createCmd = createCmd.withCmd(config.getCmd());
             if (config.getEntrypoint() != null) createCmd = createCmd.withEntrypoint(config.getEntrypoint());
-            if (config.getEnv() != null) createCmd = createCmd.withEnv(config.getEnv());
             if (config.getLabels() != null) createCmd = createCmd.withLabels(config.getLabels());
             if (config.getWorkingDir() != null) createCmd = createCmd.withWorkingDir(config.getWorkingDir());
             if (config.getExposedPorts() != null) createCmd = createCmd.withExposedPorts(Arrays.asList(config.getExposedPorts()));

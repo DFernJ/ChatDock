@@ -5,6 +5,7 @@ import com.DockerOps.dto.request.UpdateAppSecretRequest;
 import com.DockerOps.dto.response.AppSecretResponse;
 import com.DockerOps.dto.response.SecretValueResponse;
 import com.DockerOps.service.apps.AppSecretService;
+import com.DockerOps.service.docker.ContainerService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,8 @@ public class SecretController {
 
     @Autowired
     private AppSecretService appSecretService;
+    @Autowired
+    private ContainerService containerService;
 
     @PreAuthorize("hasAuthority('PERM_VIEWER')")
     @GetMapping("/containers/{containerId}/secrets")
@@ -40,7 +43,9 @@ public class SecretController {
     @PostMapping("/containers/{containerId}/secrets")
     public AppSecretResponse createSecret(@PathVariable String containerId, @RequestBody CreateAppSecretRequest request) {
         log.info("Creating secret for container id={}", containerId);
-        return appSecretService.createSecret(containerId, request);
+        AppSecretResponse response = appSecretService.createSecret(containerId, request);
+        containerService.recreateForSecretsChange(containerId);
+        return response;
     }
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")
@@ -50,7 +55,9 @@ public class SecretController {
             @PathVariable UUID secretId,
             @RequestBody UpdateAppSecretRequest request) {
         log.info("Updating secret id={} for container id={}", secretId, containerId);
-        return appSecretService.updateSecret(containerId, secretId, request);
+        AppSecretResponse response = appSecretService.updateSecret(containerId, secretId, request);
+        containerService.recreateForSecretsChange(containerId);
+        return response;
     }
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")
@@ -58,6 +65,7 @@ public class SecretController {
     public ResponseEntity<String> deleteSecret(@PathVariable String containerId, @PathVariable UUID secretId) {
         log.info("Deleting secret id={} for container id={}", secretId, containerId);
         appSecretService.deleteSecret(containerId, secretId);
+        containerService.recreateForSecretsChange(containerId);
         return ResponseEntity.ok("Secret deleted successfully");
     }
 }
