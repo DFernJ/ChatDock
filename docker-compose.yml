@@ -48,10 +48,12 @@ services:
       GITHUB_APP_ID: ${GITHUB_APP_ID}
       GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL}
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
-      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID}
-      CLOUDFLARE_TUNNEL_ID: ${CLOUDFLARE_TUNNEL_ID}
-      CLOUDFLARE_BASE_DOMAIN: ${CLOUDFLARE_BASE_DOMAIN}
+      DNS_PROVIDER: ${DNS_PROVIDER:-cloudflare}
+      BASE_DOMAIN: ${BASE_DOMAIN:-${CLOUDFLARE_BASE_DOMAIN:-}}
+      ALT_BASE_DOMAIN: ${ALT_BASE_DOMAIN:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID:-}
+      CLOUDFLARE_TUNNEL_ID: ${CLOUDFLARE_TUNNEL_ID:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL}
     volumes:
@@ -103,8 +105,13 @@ services:
       dockerfile: Dockerfile
     container_name: essential-chatdock-nginx
     restart: on-failure:5
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?Define PUBLIC_DOMAIN en .env (dominio principal, p. ej. chatdock.midominio.com)}
+      ALT_DOMAIN: ${ALT_DOMAIN:-}
+    # Ya no se publica en 0.0.0.0: cloudflared y edge llegan por external-net.
+    # Solo queda accesible en loopback para depuración.
     ports:
-      - "80:80"
+      - "127.0.0.1:8081:80"
     volumes:
       - dynamic-routes:/etc/nginx/conf.d/apps
       - nginx-audit-logs:/var/log/nginx-audit
@@ -131,6 +138,31 @@ services:
     networks:
       - external-net
 
+  # ─────────────── Edge directo (Caddy + HTTPS automático) ───────────────
+  # Segunda vía de entrada que NO pasa por Cloudflare: los usuarios llegan
+  # directamente a la IP pública del servidor. Se activa con:
+  #   docker compose --profile direct up -d --build
+  edge:
+    image: caddy:2-alpine
+    container_name: essential-chatdock-edge
+    profiles: ["direct"]
+    restart: unless-stopped
+    environment:
+      ALT_DOMAIN: ${ALT_DOMAIN:?Define ALT_DOMAIN en .env para usar el perfil direct}
+      ACME_EMAIL: ${ACME_EMAIL:?Define ACME_EMAIL en .env para usar el perfil direct}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./edge/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - reverse-proxy
+    networks:
+      - external-net
+
 # ─────────────── Networks ───────────────
 networks:
   external-net:
@@ -150,5 +182,9 @@ volumes:
   dynamic-routes:
     driver: local
   nginx-audit-logs:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
     driver: local
 

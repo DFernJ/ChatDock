@@ -77,7 +77,7 @@ public class ContainerService {
     @Autowired
     private SubdomainRoutingService subdomainRoutingService;
 
-    @Value("${app.cloudflare.base-domain}")
+    @Value("${app.base-domain}")
     private String baseDomain;
     @Value("${app.docker.apps-network-name}")
     private String appsNetworkName;

@@ -99,13 +99,24 @@ To install ChatDock, follow these steps:
     BACKEND_URL=core-api-url-provided-by-docker-namespace-without-trailing-slash
     DISCORD_BOT_TOKEN=discord-bot-token
 
+    # Domains
+    PUBLIC_DOMAIN=main-domain-of-the-web-interface
+    BASE_DOMAIN=base-domain-of-imported-apps
+
     # Cloudflare (Tunnel + DNS)
+    DNS_PROVIDER=cloudflare-or-none
     TUNNEL_TOKEN=cloudflare-tunnel-token
     CLOUDFLARE_API_TOKEN=cloudflare-api-token
     CLOUDFLARE_ZONE_ID=cloudflare-zone-id
     CLOUDFLARE_TUNNEL_ID=cloudflare-tunnel-id
-    CLOUDFLARE_BASE_DOMAIN=base-domain-for-cloudflare-dns
+
+    # Direct edge without Cloudflare (optional, see "Direct access layer")
+    ALT_DOMAIN=
+    ALT_BASE_DOMAIN=
+    ACME_EMAIL=
     ```
+
+    > `CLOUDFLARE_BASE_DOMAIN` is still accepted as a fallback for `BASE_DOMAIN`.
 
     
 3. Run the following command to start the system using Docker Compose:
@@ -117,6 +128,44 @@ To install ChatDock, follow these steps:
 
 
 5. Access the web service by navigating to the domain name you set up with Cloudflare in your web browser.
+
+# Direct access layer (without Cloudflare)
+
+Cloudflare's edge IPs can be blocked by some Spanish ISPs during football matches (LaLiga), which makes anything behind
+the tunnel unreachable for those users. The optional `direct` profile adds a second entry point that does **not** go
+through Cloudflare: a Caddy container (`edge`) with automatic Let's Encrypt HTTPS, reaching the server through its own
+public IP. Both paths coexist and share the same Nginx, so nothing else changes.
+
+```
+Users ──► Cloudflare ──► cloudflared ─┐
+                                      ├──► Nginx ──► frontend / core-api / imported apps
+Users ──► your server IP ──► Caddy ───┘
+```
+
+Setup (e.g. on an Oracle Cloud VPS):
+
+1. **DNS** (a DNS-only record, *not* proxied, in any DNS provider):
+   - `A  alt.example.com   -> <public IP of the VPS>` (web interface) and set `ALT_DOMAIN=alt.example.com`.
+   - Optional, for imported apps: `A  *.alt-apps.example.com -> <public IP>` and set `ALT_BASE_DOMAIN=alt-apps.example.com`.
+     Each app is then also reachable at `myapp.alt-apps.example.com`.
+2. **Oracle Cloud**: allow TCP 80/443 (and UDP 443) in the VCN *Security List* / NSG, **and** in the instance firewall.
+   Ubuntu images on OCI ship with restrictive `iptables` rules:
+   ```bash
+   sudo iptables -I INPUT 6 -p tcp --dport 80 -j ACCEPT
+   sudo iptables -I INPUT 6 -p tcp --dport 443 -j ACCEPT
+   sudo iptables -I INPUT 6 -p udp --dport 443 -j ACCEPT
+   sudo netfilter-persistent save
+   ```
+3. **`.env`**: fill `ALT_DOMAIN`, `ACME_EMAIL` (and optionally `ALT_BASE_DOMAIN`), and add `https://<ALT_DOMAIN>` to `CORS_ALLOW_ORIGIN`.
+4. Start with the profile: `docker compose --profile direct up -d --build`.
+
+Notes:
+- Since the block happens on the *user's* side, the server cannot detect it, so there is no automatic failover:
+  share the alternative domain (`ALT_DOMAIN`) with the users affected during match days.
+- If you only want the direct path, set `DNS_PROVIDER=none` and drop the `cloudflared` service (no Cloudflare account needed).
+- The GitHub OAuth callback uses `APP_PUBLIC_URL`, so linking GitHub should be done from the main domain.
+- Port 80 of the reverse proxy is no longer published on all interfaces; it is only reachable inside the Docker network
+  (and on `127.0.0.1:8081` for debugging). `/api/internal/**` is also blocked at the proxy.
 
 # Operational configuration
 

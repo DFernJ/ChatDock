@@ -1,0 +1,32 @@
+# Edge directo: segunda vía de entrada que no depende de Cloudflare.
+# Caddy termina TLS (Let's Encrypt automático) y reenvía todo al Nginx interno.
+#
+# Variables (se pasan desde docker-compose / .env):
+#   ALT_DOMAIN  -> hostname de la interfaz web por esta vía (p. ej. alt.midominio.com)
+#   ACME_EMAIL  -> correo para Let's Encrypt
+
+{
+	email {$ACME_EMAIL}
+
+	# Los subdominios de apps importadas se emiten bajo demanda, pero SOLO si
+	# Nginx confirma que existe una app con ese hostname (evita que cualquiera
+	# agote los límites de Let's Encrypt apuntando dominios arbitrarios a la IP).
+	on_demand_tls {
+		ask http://reverse-proxy:8081/_tls-ask
+	}
+}
+
+# Interfaz web / API / WebSocket
+{$ALT_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy reverse-proxy:80
+}
+
+# Apps importadas publicadas como subdominios del dominio alternativo
+# (p. ej. miapp.alt-base.com). El certificado se pide la primera vez que se visita.
+https:// {
+	tls {
+		on_demand
+	}
+	reverse_proxy reverse-proxy:80
+}

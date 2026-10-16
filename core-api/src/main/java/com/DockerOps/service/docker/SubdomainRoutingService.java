@@ -11,12 +11,12 @@ public class SubdomainRoutingService {
     @Autowired
     private NginxConfigService nginxConfigService;
     @Autowired
-    private CloudflareDnsService cloudflareDnsService;
+    private DnsProvider dnsProvider;
 
     public void provision(String subdomain, String containerName, int port) {
         nginxConfigService.writeConfig(subdomain, containerName, port);
         try {
-            cloudflareDnsService.createRecord(subdomain);
+            dnsProvider.createRecord(subdomain);
         } catch (RuntimeException e) {
             nginxConfigService.removeConfig(subdomain);
             throw e;
@@ -30,9 +30,9 @@ public class SubdomainRoutingService {
             log.warn("Could not remove the Nginx config for subdomain '{}'", subdomain, e);
         }
         try {
-            cloudflareDnsService.deleteRecord(subdomain);
+            dnsProvider.deleteRecord(subdomain);
         } catch (RuntimeException e) {
-            log.warn("Could not delete the Cloudflare DNS record for subdomain '{}'", subdomain, e);
+            log.warn("Could not delete the DNS record for subdomain '{}'", subdomain, e);
         }
     }
 }

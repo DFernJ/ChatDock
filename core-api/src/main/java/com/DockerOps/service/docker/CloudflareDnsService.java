@@ -1,6 +1,7 @@
 package com.DockerOps.service.docker;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -9,7 +10,8 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 
 @Service
-public class CloudflareDnsService {
+@ConditionalOnProperty(name = "app.dns.provider", havingValue = "cloudflare", matchIfMissing = true)
+public class CloudflareDnsService implements DnsProvider {
 
     private static final String API_BASE = "https://api.cloudflare.com/client/v4";
 
@@ -19,11 +21,12 @@ public class CloudflareDnsService {
     private String zoneId;
     @Value("${app.cloudflare.tunnel-id}")
     private String tunnelId;
-    @Value("${app.cloudflare.base-domain}")
+    @Value("${app.base-domain}")
     private String baseDomain;
 
     private final RestClient restClient = RestClient.create();
 
+    @Override
     public void createRecord(String subdomain) {
         String hostname = subdomain + "." + baseDomain;
         CloudflareResponse response = restClient.post()
@@ -38,6 +41,7 @@ public class CloudflareDnsService {
         }
     }
 
+    @Override
     public void deleteRecord(String subdomain) {
         String hostname = subdomain + "." + baseDomain;
         CloudflareListResponse list = restClient.get()

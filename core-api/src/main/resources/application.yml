@@ -57,7 +57,7 @@ app:
     max-log-bytes: 10485760
   nginx:
     apps-conf-dir: /etc/nginx/conf.d/apps
-    container-name: essential-chat-ops-nginx
+    container-name: essential-chatdock-nginx
     max-body-size: 20m
     reload-timeout-seconds: 10
   oauth:
@@ -84,11 +84,18 @@ app:
     app-slug: ${GITHUB_APP_SLUG}
     app-id: ${GITHUB_APP_ID}
     private-key: ${GITHUB_APP_PRIVATE_KEY}
+  # Dominio base de los subdominios de apps importadas (compatible con CLOUDFLARE_BASE_DOMAIN)
+  base-domain: ${BASE_DOMAIN:${CLOUDFLARE_BASE_DOMAIN:}}
+  # Dominio base alternativo servido por el edge directo (sin Cloudflare). Opcional.
+  alt-base-domain: ${ALT_BASE_DOMAIN:}
+  dns:
+    # cloudflare: crea/borra un CNAME por app vía API de Cloudflare
+    # none: sin gestión de DNS por app (usa un registro wildcard manual)
+    provider: ${DNS_PROVIDER:cloudflare}
   cloudflare:
-    api-token: ${CLOUDFLARE_API_TOKEN}
-    zone-id: ${CLOUDFLARE_ZONE_ID}
-    tunnel-id: ${CLOUDFLARE_TUNNEL_ID}
-    base-domain: ${CLOUDFLARE_BASE_DOMAIN}
+    api-token: ${CLOUDFLARE_API_TOKEN:}
+    zone-id: ${CLOUDFLARE_ZONE_ID:}
+    tunnel-id: ${CLOUDFLARE_TUNNEL_ID:}
 
 management:
   endpoints:

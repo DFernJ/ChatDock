@@ -26,8 +26,10 @@ public class NginxConfigService {
     @Autowired
     private DockerClient dockerClient;
 
-    @Value("${app.cloudflare.base-domain}")
+    @Value("${app.base-domain}")
     private String baseDomain;
+    @Value("${app.alt-base-domain:}")
+    private String altBaseDomain;
     @Value("${app.nginx.apps-conf-dir}")
     private String appsConfDir;
     @Value("${app.nginx.container-name}")
@@ -45,10 +47,17 @@ public class NginxConfigService {
                 .replace("{{ app-port }}", String.valueOf(port))
                 .replace("{{ subdomain }}", subdomain)
                 .replace("{{ base-domain }}", baseDomain)
+                .replace("{{ alt-server-name }}", hasAltDomain() ? " " + altHost(subdomain) : "")
                 .replace("{{ app-max-body-size }}", maxBodySize);
         try {
-            Files.createDirectories(appsConfDirPath());
+            Files.createDirectories(askDirPath());
             Files.writeString(configPath(subdomain), content);
+            // Markers read by Nginx's /_tls-ask endpoint so the edge (Caddy) only
+            // issues certificates for hostnames that belong to a real app.
+            Files.writeString(askMarkerPath(subdomain + "." + baseDomain), "");
+            if (hasAltDomain()) {
+                Files.writeString(askMarkerPath(altHost(subdomain)), "");
+            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -58,14 +67,34 @@ public class NginxConfigService {
     public void removeConfig(String subdomain) {
         try {
             Files.deleteIfExists(configPath(subdomain));
+            Files.deleteIfExists(askMarkerPath(subdomain + "." + baseDomain));
+            if (hasAltDomain()) {
+                Files.deleteIfExists(askMarkerPath(altHost(subdomain)));
+            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
         reload();
     }
 
+    private boolean hasAltDomain() {
+        return altBaseDomain != null && !altBaseDomain.isBlank();
+    }
+
+    private String altHost(String subdomain) {
+        return subdomain + "." + altBaseDomain.trim();
+    }
+
     private Path appsConfDirPath() {
         return Path.of(appsConfDir);
+    }
+
+    private Path askDirPath() {
+        return appsConfDirPath().resolve("ask");
+    }
+
+    private Path askMarkerPath(String hostname) {
+        return askDirPath().resolve(hostname);
     }
 
     private Path configPath(String subdomain) {
