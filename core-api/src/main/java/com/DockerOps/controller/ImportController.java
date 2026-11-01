@@ -4,10 +4,11 @@ import com.DockerOps.dto.request.CloneRepositoryRequest;
 import com.DockerOps.dto.request.CompleteZipImportRequest;
 import com.DockerOps.dto.request.DeployComposeRequest;
 import com.DockerOps.dto.request.PseudoDockerfileRequest;
-import com.DockerOps.dto.response.ComposeDeployResultDTO;
 import com.DockerOps.dto.response.GitHubRepoDTO;
+import com.DockerOps.dto.response.ImportJobDTO;
 import com.DockerOps.dto.response.ImportResultDTO;
 import com.DockerOps.model.users.User;
+import com.DockerOps.service.docker.ImportJobService;
 import com.DockerOps.service.docker.ImportService;
 import com.DockerOps.service.profile.GitHubOAuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,6 +29,8 @@ public class ImportController {
 
     @Autowired
     private ImportService importService;
+    @Autowired
+    private ImportJobService importJobService;
     @Autowired
     private GitHubOAuthService gitHubOAuthService;
 
@@ -51,17 +54,26 @@ public class ImportController {
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")
     @PostMapping("/zip/{uploadId}/build-dockerfile")
-    public ImportResultDTO buildFromPseudoDockerfile(@PathVariable String uploadId, @RequestBody PseudoDockerfileRequest request) {
+    public ResponseEntity<ImportJobDTO> buildFromPseudoDockerfile(@PathVariable String uploadId, @RequestBody PseudoDockerfileRequest request, Authentication authentication) {
+        User current = currentUser(authentication);
         log.info("Building image from pseudo-Dockerfile for uploadId={}", uploadId);
-        return importService.buildFromPseudoDockerfile(uploadId, request);
+        String jobId = importJobService.submit(uploadId, current, () -> importService.buildFromPseudoDockerfile(uploadId, request));
+        return ResponseEntity.accepted().body(new ImportJobDTO(jobId, "RUNNING", null, null));
     }
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")
     @PostMapping("/zip/{uploadId}/deploy-compose")
-    public ComposeDeployResultDTO deployCompose(@PathVariable String uploadId, @RequestBody DeployComposeRequest request, Authentication authentication) {
+    public ResponseEntity<ImportJobDTO> deployCompose(@PathVariable String uploadId, @RequestBody DeployComposeRequest request, Authentication authentication) {
         User current = currentUser(authentication);
         log.info("Deploying compose stack for uploadId={} requested by username={}", uploadId, current.getUsername());
-        return importService.deployCompose(uploadId, request, current);
+        String jobId = importJobService.submit(uploadId, current, () -> importService.deployCompose(uploadId, request, current));
+        return ResponseEntity.accepted().body(new ImportJobDTO(jobId, "RUNNING", null, null));
+    }
+
+    @PreAuthorize("hasAuthority('PERM_EDITOR')")
+    @GetMapping("/jobs/{jobId}")
+    public ImportJobDTO getJob(@PathVariable String jobId, Authentication authentication) {
+        return importJobService.get(jobId, currentUser(authentication));
     }
 
     @PreAuthorize("hasAuthority('PERM_EDITOR')")

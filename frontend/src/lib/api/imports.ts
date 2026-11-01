@@ -1,4 +1,4 @@
-import type { ComposeDeployResultDTO, DeployComposeRequest, GitHubRepoDTO, ImportResultDTO, PseudoDockerfileRequest } from "../../types/imports.ts";
+import type { ComposeDeployResultDTO, DeployComposeRequest, GitHubRepoDTO, ImportJobDTO, ImportResultDTO, PseudoDockerfileRequest } from "../../types/imports.ts";
 import { ApiError, request, searchParams } from "../api.ts";
 
 const ImportsPath: string = "/api/imports";
@@ -20,19 +20,28 @@ export const completeZipImport = (uploadId: string, totalChunks: number) =>
         body: JSON.stringify({ totalChunks })
     });
 
-export const buildFromPseudoDockerfile = (uploadId: string, body: PseudoDockerfileRequest) =>
-    request<ImportResultDTO>(`${ImportsPath}/zip/${uploadId}/build-dockerfile`, {
+const JobPollIntervalMs: number = 2000;
+
+// Long operations (image builds) run in the background: start the job, then poll until it ends.
+async function runJob<T>(path: string, body: unknown): Promise<T> {
+    let job = await request<ImportJobDTO<T>>(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
     });
+    while (job.status === "RUNNING") {
+        await new Promise(resolve => setTimeout(resolve, JobPollIntervalMs));
+        job = await request<ImportJobDTO<T>>(`${ImportsPath}/jobs/${job.id}`);
+    }
+    if (job.status === "FAILED") throw new ApiError(400, job.error ?? "The operation failed");
+    return job.result as T;
+}
+
+export const buildFromPseudoDockerfile = (uploadId: string, body: PseudoDockerfileRequest) =>
+    runJob<ImportResultDTO>(`${ImportsPath}/zip/${uploadId}/build-dockerfile`, body);
 
 export const deployCompose = (uploadId: string, body: DeployComposeRequest) =>
-    request<ComposeDeployResultDTO>(`${ImportsPath}/zip/${uploadId}/deploy-compose`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    });
+    runJob<ComposeDeployResultDTO>(`${ImportsPath}/zip/${uploadId}/deploy-compose`, body);
 
 export const listGithubRepos = () =>
     request<GitHubRepoDTO[]>(`${ImportsPath}/github/repos`);

@@ -48,3 +48,10 @@ export interface GitHubRepoDTO {
     defaultBranch: string;
     isPrivate: boolean;
 }
+
+export interface ImportJobDTO<T> {
+    id: string;
+    status: "RUNNING" | "DONE" | "FAILED";
+    result: T | null;
+    error: string | null;
+}

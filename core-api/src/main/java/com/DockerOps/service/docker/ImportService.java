@@ -12,6 +12,7 @@ import com.DockerOps.dto.response.ComposeParseResultDTO;
 import com.DockerOps.dto.response.ComposeServiceDTO;
 import com.DockerOps.dto.response.ImportResultDTO;
 import com.DockerOps.model.users.User;
+import com.DockerOps.repository.apps.AppRepository;
 import com.DockerOps.repository.apps.AppStackRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -71,6 +72,8 @@ public class ImportService {
     private VolumeService volumeService;
     @Autowired
     private AppStackRepository appStackRepository;
+    @Autowired
+    private AppRepository appRepository;
 
     @Value("${app.import.image}")
     private String importerImage;
@@ -350,6 +353,10 @@ public class ImportService {
     public ComposeDeployResultDTO deployCompose(String uploadId, DeployComposeRequest req, User owner) {
         Path dir = uploadDir(uploadId);
         Path contextDir = dir.resolve("context");
+        List<String> createdContainers = new ArrayList<>();
+        List<String> createdNetworks = new ArrayList<>();
+        List<String> createdVolumes = new ArrayList<>();
+        String createdProject = null;
         try {
             if (!Files.isDirectory(contextDir)) {
                 throw new IllegalArgumentException("Upload expired or already used — re-upload the zip.");
@@ -385,6 +392,8 @@ public class ImportService {
 
             String defaultNetworkName = projectName + "-net";
             networkService.createNetwork(defaultNetworkName, "bridge");
+            createdProject = projectName;
+            createdNetworks.add(defaultNetworkName);
 
             Map<String, String> resolvedNetworkNames = new HashMap<>();
             for (ComposeNetworkDTO net : parsed.networks()) {
@@ -392,6 +401,7 @@ public class ImportService {
                 resolvedNetworkNames.put(net.key(), dockerName);
                 if (!net.external()) {
                     networkService.createNetwork(dockerName, net.driver() != null ? net.driver() : "bridge");
+                    createdNetworks.add(dockerName);
                 }
             }
 
@@ -403,9 +413,9 @@ public class ImportService {
             }
             for (String dockerVolumeName : resolvedVolumeNames.values()) {
                 volumeService.createVolume(dockerVolumeName, "local");
+                createdVolumes.add(dockerVolumeName);
             }
 
-            List<String> createdContainers = new ArrayList<>();
             for (String serviceName : order) {
                 ComposeServiceDTO service = byName.get(serviceName);
                 String image = service.image();
@@ -416,6 +426,10 @@ public class ImportService {
                 ComposeServiceOverride override = req.services().get(serviceName);
                 List<SecretDraftDTO> secrets = override != null && override.secrets() != null ? override.secrets() : service.secrets();
                 String containerName = projectName + "-" + serviceName;
+                if (!dockerClient.listContainersCmd().withShowAll(true).withNameFilter(List.of("^/" + Pattern.quote(containerName) + "$")).exec().isEmpty()) {
+                    throw new IllegalArgumentException("A container named '" + containerName + "' already exists");
+                }
+                createdContainers.add(containerName);
 
                 Map<String, String> secretValues = new HashMap<>();
                 for (SecretDraftDTO s : secrets) {
@@ -456,14 +470,50 @@ public class ImportService {
                         projectName
                 );
                 containerService.createContainer(createReq, owner);
-                createdContainers.add(containerName);
                 log.info("[compose {}] created container {}", uploadId, containerName);
             }
 
             return new ComposeDeployResultDTO(projectName, createdContainers);
+        } catch (RuntimeException e) {
+            if (createdProject != null) {
+                rollbackCompose(createdProject, createdContainers, createdNetworks, createdVolumes);
+            }
+            throw e;
         } finally {
             deleteRecursively(dir);
         }
+    }
+
+    /** Best-effort removal of everything a failed compose deploy created, so the project name can be reused. */
+    private void rollbackCompose(String projectName, List<String> containers, List<String> networks, List<String> volumes) {
+        for (String name : containers) {
+            try {
+                containerService.deleteContainer(name, true, false);
+            } catch (RuntimeException e) {
+                log.debug("[compose {}] rollback: container {} not removed ({})", projectName, name, e.getMessage());
+            }
+            appRepository.findByContainerName(name).ifPresent(appRepository::delete);
+        }
+        for (String name : networks) {
+            try {
+                networkService.deleteNetwork(name);
+            } catch (RuntimeException e) {
+                log.warn("[compose {}] rollback: could not remove network {}", projectName, name, e);
+            }
+        }
+        for (String name : volumes) {
+            try {
+                volumeService.deleteVolume(name);
+            } catch (RuntimeException e) {
+                log.warn("[compose {}] rollback: could not remove volume {}", projectName, name, e);
+            }
+        }
+        appStackRepository.findByStackNameIgnoreCase(projectName).ifPresent(stack -> {
+            if (appRepository.findByStack_Id(stack.getId()).isEmpty()) {
+                appStackRepository.delete(stack);
+            }
+        });
+        log.info("[compose {}] rolled back after failure", projectName);
     }
 
     private String buildComposeServiceImage(Path dir, Path contextDir, String projectName, String serviceName, String buildSubdir, String dockerfileName) {
