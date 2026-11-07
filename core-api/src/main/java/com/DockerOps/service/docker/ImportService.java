@@ -41,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -411,10 +412,7 @@ public class ImportService {
                     resolvedVolumeNames.computeIfAbsent(v.volumeName(), raw -> projectName + "-" + raw);
                 }
             }
-            for (String dockerVolumeName : resolvedVolumeNames.values()) {
-                volumeService.createVolume(dockerVolumeName, "local");
-                createdVolumes.add(dockerVolumeName);
-            }
+            createMissingVolumes(volumeService, resolvedVolumeNames.values(), createdVolumes);
 
             for (String serviceName : order) {
                 ComposeServiceDTO service = byName.get(serviceName);
@@ -481,6 +479,22 @@ public class ImportService {
             throw e;
         } finally {
             deleteRecursively(dir);
+        }
+    }
+
+    /**
+     * Creates the volumes that do not exist yet and records only those in {@code created}. Docker's create-volume is
+     * idempotent, so a volume left over from a previous deploy (with its data) is reused as is, and it must never be
+     * recorded: {@link #rollbackCompose} deletes everything in that list, which would destroy the old data.
+     */
+    static void createMissingVolumes(VolumeService volumes, Collection<String> names, List<String> created) {
+        for (String name : names) {
+            if (volumes.volumeExists(name)) {
+                log.info("[compose] reusing existing volume {}", name);
+                continue;
+            }
+            volumes.createVolume(name, "local");
+            created.add(name);
         }
     }
 

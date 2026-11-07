@@ -5,6 +5,7 @@ import com.DockerOps.dto.volume.VolumeDTO;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateVolumeResponse;
 import com.github.dockerjava.api.command.InspectVolumeResponse;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.ContainerMount;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,15 @@ public class VolumeService {
                 .withVolumeFilter(List.of(name))
                 .exec();
         return new VolumeDTO(volume.getName(), volume.getDriver(), containers.size(), MinifiedContainerMountsDTO.listFor(name, containers));
+    }
+
+    public boolean volumeExists(String name) {
+        try {
+            dockerClient.inspectVolumeCmd(name).exec();
+            return true;
+        } catch (NotFoundException e) {
+            return false;
+        }
     }
 
     public VolumeDTO createVolume(String name, String driver) {
